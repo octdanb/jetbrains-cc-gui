@@ -18,6 +18,19 @@ export type VoiceRecordingState = 'idle' | 'recording' | 'transcribing';
 interface UseVoiceInputOptions {
   /** Insert the transcript into the input box (usually window.insertCodeSnippetAtCursor) */
   insertTranscript: (text: string) => void;
+  /**
+   * Show/replace live partial text in place while speaking. Returns true when
+   * the partial was rendered, so the final transcript knows to replace it
+   * rather than append a second copy.
+   */
+  showPartialTranscript?: (text: string) => boolean;
+  /**
+   * Commit the live partial to plain text. Returns true when a partial existed
+   * and was replaced (so the caller should not also insert the transcript).
+   */
+  commitPartialTranscript?: (text: string) => boolean;
+  /** Drop any live partial without committing it. */
+  discardPartialTranscript?: () => void;
   addToast?: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
   t: TFunction;
 }
@@ -52,6 +65,9 @@ interface UseVoiceInputResult {
  */
 export function useVoiceInput({
   insertTranscript,
+  showPartialTranscript,
+  commitPartialTranscript,
+  discardPartialTranscript,
   addToast,
   t,
 }: UseVoiceInputOptions): UseVoiceInputResult {
@@ -61,13 +77,22 @@ export function useVoiceInput({
 
   // Keep latest callbacks in refs so the window bridge functions stay stable.
   const insertTranscriptRef = useRef(insertTranscript);
+  const showPartialRef = useRef(showPartialTranscript);
+  const commitPartialRef = useRef(commitPartialTranscript);
+  const discardPartialRef = useRef(discardPartialTranscript);
   const addToastRef = useRef(addToast);
   const tRef = useRef(t);
   useEffect(() => {
     insertTranscriptRef.current = insertTranscript;
+    showPartialRef.current = showPartialTranscript;
+    commitPartialRef.current = commitPartialTranscript;
+    discardPartialRef.current = discardPartialTranscript;
     addToastRef.current = addToast;
     tRef.current = t;
-  }, [insertTranscript, addToast, t]);
+  }, [insertTranscript, showPartialTranscript, commitPartialTranscript, discardPartialTranscript, addToast, t]);
+
+  /** True while a live partial is showing, so the final transcript replaces it. */
+  const hasPartialRef = useRef(false);
 
   // Track settings state (master toggle, engine mode, credentials).
   useEffect(() => {
@@ -108,15 +133,44 @@ export function useVoiceInput({
       }
     };
 
+    // Live dictation: replace the in-place partial as new text arrives.
+    window.onVoicePartialTranscript = (json: string) => {
+      try {
+        const payload = JSON.parse(json) as { text?: string };
+        const text = payload.text?.trim();
+        if (!text) {
+          return;
+        }
+        if (showPartialRef.current?.(text)) {
+          hasPartialRef.current = true;
+        }
+      } catch (e) {
+        console.error('[useVoiceInput] bad partial payload:', e);
+      }
+    };
+
     window.onVoiceTranscript = (json: string) => {
       setVoiceState('idle');
       try {
         const payload = JSON.parse(json) as { success?: boolean; text?: string; error?: string };
-        if (payload.success && payload.text && payload.text.trim()) {
-          insertTranscriptRef.current(payload.text.trim());
+        const finalText = payload.text?.trim() ?? '';
+        const hadPartial = hasPartialRef.current;
+        hasPartialRef.current = false;
+
+        if (payload.success && finalText) {
+          // Prefer replacing the live partial in place; only fall back to a
+          // fresh insertion when there was no partial to replace (live mode
+          // off, or the user deleted it mid-dictation).
+          const replaced = hadPartial && commitPartialRef.current?.(finalText);
+          if (!replaced) {
+            discardPartialRef.current?.();
+            insertTranscriptRef.current(finalText);
+          }
         } else if (payload.success) {
+          discardPartialRef.current?.();
           addToastRef.current?.(tRef.current('chat.voice.emptyTranscript'), 'warning');
         } else {
+          discardPartialRef.current?.();
           addToastRef.current?.(
             payload.error || tRef.current('chat.voice.transcriptionFailed'),
             'error'
@@ -131,7 +185,9 @@ export function useVoiceInput({
       // Cancel any in-flight recording when the composer unmounts so the
       // Java side does not keep the microphone line open.
       sendBridgeEvent('voice_record_cancel');
+      hasPartialRef.current = false;
       delete window.onVoiceRecordingState;
+      delete window.onVoicePartialTranscript;
       delete window.onVoiceTranscript;
     };
   }, []);

@@ -969,7 +969,9 @@
         "setupSuccess": "本地 Whisper 已就绪——语音输入现在完全离线运行",
         "setupFailed": "本地 Whisper 安装失败",
         "localHint": "将 Whisper 运行时（transformers.js + ONNX）安装到 ~/.codemoss/dependencies/whisper-local，并从 Hugging Face 下载模型（可通过 HF_ENDPOINT 使用镜像）。音频不会离开本机，也无需 API 密钥。IDE 重启后的首次转写会因加载模型而多花几秒。",
-        "wasmFallbackNote": "由于本机的原生语音后端崩溃，当前使用可移植的 WASM 后端。功能正常但速度较慢——可重新运行安装以再次尝试原生后端。"
+        "wasmFallbackNote": "由于本机的原生语音后端崩溃，当前使用可移植的 WASM 后端。功能正常但速度较慢——可重新运行安装以再次尝试原生后端。",
+        "liveDictation": "实时听写（边说边显示文字）",
+        "liveDictationHint": "大约每秒重新转写一次，边说话边在输入框中显示文字，停止录音后替换为最终结果。仅支持本地引擎。whisper-tiny 响应最快；更大的模型只是更新频率较低。"
       },
       "remote": {
         "label": "远程控制（Claude 应用）",

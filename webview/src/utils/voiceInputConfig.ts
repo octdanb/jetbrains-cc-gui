@@ -39,6 +39,12 @@ export interface VoiceInputConfig {
    * and reintroduce the native crash on the next server start.
    */
   localDevice: VoiceInputDevice;
+  /**
+   * Stream partial transcripts into the composer while speaking (local engine
+   * only — each pass is a full transcription request, which would bill a cloud
+   * endpoint roughly once per second of speech).
+   */
+  liveDictation: boolean;
 }
 
 export const DEFAULT_VOICE_INPUT_CONFIG: VoiceInputConfig = {
@@ -51,6 +57,7 @@ export const DEFAULT_VOICE_INPUT_CONFIG: VoiceInputConfig = {
   language: '',
   localModel: 'Xenova/whisper-base',
   localDevice: 'cpu',
+  liveDictation: true,
 };
 
 type Listener = (config: VoiceInputConfig) => void;
@@ -71,6 +78,7 @@ function normalizeConfig(raw: Partial<VoiceInputConfig> | null | undefined): Voi
       ? raw.localModel.trim()
       : DEFAULT_VOICE_INPUT_CONFIG.localModel,
     localDevice: raw?.localDevice === 'wasm' ? 'wasm' : 'cpu',
+    liveDictation: typeof raw?.liveDictation === 'boolean' ? raw.liveDictation : true,
   };
 }
 

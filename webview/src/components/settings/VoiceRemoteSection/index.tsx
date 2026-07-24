@@ -243,6 +243,19 @@ const VoiceRemoteSection = ({ addToast }: VoiceRemoteSectionProps) => {
               </select>
             </div>
 
+            <label className={styles.checkboxWrapper}>
+              <input
+                type="checkbox"
+                checked={voiceConfig.liveDictation}
+                onChange={(e) => persistVoiceConfig({ ...voiceConfig, liveDictation: e.target.checked })}
+              />
+              <span>{t('settings.voiceRemote.voice.liveDictation')}</span>
+            </label>
+            <small className={styles.formHint}>
+              <span className="codicon codicon-info" />
+              <span>{t('settings.voiceRemote.voice.liveDictationHint')}</span>
+            </small>
+
             <div className={styles.statusRow}>
               <span className={`codicon ${localReady ? 'codicon-pass-filled' : 'codicon-circle-large-outline'}`} />
               <span>{localStatusText}</span>

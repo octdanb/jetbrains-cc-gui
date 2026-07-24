@@ -41,6 +41,11 @@ import {
   useVoiceInput,
 } from './hooks/index.js';
 import { debounce } from './utils/debounce.js';
+import {
+  updatePartialText,
+  commitPartialText,
+  discardPartialText,
+} from './utils/voicePartialText.js';
 import { perfTimer } from '../../utils/debug.js';
 import { DEBOUNCE_TIMING } from '../../constants/performance.js';
 import { SessionContext } from '../../contexts/SessionContext.js';
@@ -558,6 +563,38 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       window.insertCodeSnippetAtCursor?.(text);
     }, []);
 
+    // Live dictation: partial text lives in a marked span so each update
+    // rewrites only itself, leaving any typing elsewhere untouched.
+    const syncAfterVoiceDomChange = useCallback(() => {
+      invalidateCache();
+      const text = getTextContent();
+      setHasContent(!!text.trim());
+      adjustHeight();
+    }, [invalidateCache, getTextContent, adjustHeight]);
+
+    const showVoicePartial = useCallback((text: string) => {
+      const changed = updatePartialText(editableRef.current, text);
+      if (changed) {
+        syncAfterVoiceDomChange();
+      }
+      return changed;
+    }, [syncAfterVoiceDomChange]);
+
+    const commitVoicePartial = useCallback((text: string) => {
+      const changed = commitPartialText(editableRef.current, text);
+      if (changed) {
+        syncAfterVoiceDomChange();
+        handleInput();
+      }
+      return changed;
+    }, [syncAfterVoiceDomChange, handleInput]);
+
+    const discardVoicePartial = useCallback(() => {
+      if (discardPartialText(editableRef.current)) {
+        syncAfterVoiceDomChange();
+      }
+    }, [syncAfterVoiceDomChange]);
+
     const {
       voiceState,
       voiceEnabled,
@@ -566,6 +603,9 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       toggleVoiceRecording,
     } = useVoiceInput({
       insertTranscript: insertVoiceTranscript,
+      showPartialTranscript: showVoicePartial,
+      commitPartialTranscript: commitVoicePartial,
+      discardPartialTranscript: discardVoicePartial,
       addToast,
       t,
     });

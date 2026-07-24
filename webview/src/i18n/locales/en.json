@@ -964,7 +964,9 @@
         "setupSuccess": "Local Whisper is ready — voice input now runs fully offline",
         "setupFailed": "Local Whisper setup failed",
         "localHint": "Installs the Whisper runtime (transformers.js + ONNX) into ~/.codemoss/dependencies/whisper-local and downloads the model from Hugging Face (set HF_ENDPOINT for a mirror). Audio never leaves your machine and no API key is needed. First transcription after an IDE restart takes a few extra seconds while the model loads.",
-        "wasmFallbackNote": "Running on the portable WASM speech backend because the native one crashed on this machine. Transcription works but is slower — re-run setup to try the native backend again."
+        "wasmFallbackNote": "Running on the portable WASM speech backend because the native one crashed on this machine. Transcription works but is slower — re-run setup to try the native backend again.",
+        "liveDictation": "Live dictation (show text as you speak)",
+        "liveDictationHint": "Re-transcribes your speech about once a second and shows the text in the input box as you talk, replacing it with the final result when you stop. Local engine only. whisper-tiny keeps up best; larger models simply update less often."
       },
       "remote": {
         "label": "Remote Control (Claude App)",

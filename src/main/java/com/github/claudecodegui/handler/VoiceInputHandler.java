@@ -32,9 +32,15 @@ import java.util.concurrent.TimeUnit;
  * voice_record_start / voice_record_stop / voice_record_cancel   (JS -> Java)
  * get_voice_input_config / set_voice_input_config                (JS -> Java)
  * window.onVoiceRecordingState({state, error?})                  (Java -> JS)
+ * window.onVoicePartialTranscript({text})                        (Java -> JS)
  * window.onVoiceTranscript({success, text?, error?})             (Java -> JS)
  * window.updateVoiceInputConfig({enabled, baseUrl, ...})         (Java -> JS)
  * </pre>
+ *
+ * <p><b>Live dictation:</b> when enabled (local engine only), a background
+ * ticker re-transcribes the audio captured so far every ~1.2 s and streams
+ * partial text to the composer, which shows it in place and replaces it with
+ * the final transcript on stop.</p>
  */
 public class VoiceInputHandler extends BaseMessageHandler {
 
@@ -55,9 +61,40 @@ public class VoiceInputHandler extends BaseMessageHandler {
     /** How many trailing output lines to quote when prefetch crashes. */
     private static final int PREFETCH_TAIL_LINES = 6;
 
+    /**
+     * How often to attempt a live (partial) transcription while recording.
+     * A new pass is only started when the previous one has finished, so a slow
+     * model self-regulates to fewer updates instead of building a backlog.
+     */
+    private static final long LIVE_TICK_MILLIS = 1200;
+    /** Don't bother transcribing until there is at least this much audio. */
+    private static final double LIVE_MIN_SECONDS = 1.0;
+    /**
+     * Safety cap on how much trailing audio each live pass transcribes. Live
+     * passes re-transcribe the whole recording so the preview never jumps
+     * backwards; this only bounds the worst case for very long dictations.
+     * The final pass after stop is always the complete recording.
+     */
+    private static final double LIVE_WINDOW_SECONDS = 180;
+
     private final Gson gson = new Gson();
     private final VoiceRecordingService recordingService = new VoiceRecordingService();
     private final VoiceTranscriptionService transcriptionService = new VoiceTranscriptionService();
+
+    /** Ticker driving live partial transcriptions; null when not live. */
+    private volatile java.util.concurrent.ScheduledExecutorService liveExecutor;
+    /**
+     * Incremented on every stop/cancel so in-flight live passes from a previous
+     * recording cannot emit partials into the next one.
+     */
+    private final java.util.concurrent.atomic.AtomicLong recordingGeneration =
+            new java.util.concurrent.atomic.AtomicLong();
+    /** True while a live pass is running, so ticks don't pile up. */
+    private final java.util.concurrent.atomic.AtomicBoolean livePassInFlight =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+    /** Last partial text emitted, to suppress duplicate updates. */
+    private final java.util.concurrent.atomic.AtomicReference<String> lastPartialText =
+            new java.util.concurrent.atomic.AtomicReference<>("");
 
     public VoiceInputHandler(HandlerContext context) {
         super(context);
@@ -101,7 +138,9 @@ public class VoiceInputHandler extends BaseMessageHandler {
         CompletableFuture.runAsync(() -> {
             try {
                 recordingService.start();
+                lastPartialText.set("");
                 sendRecordingState("recording", null);
+                maybeStartLiveDictation();
             } catch (Exception e) {
                 LOG.warn("[VoiceInput] Failed to start recording: " + e.getMessage());
                 sendRecordingState("idle", "Could not access the microphone: " + e.getMessage());
@@ -111,6 +150,11 @@ public class VoiceInputHandler extends BaseMessageHandler {
 
     private void handleRecordStop() {
         CompletableFuture.runAsync(() -> {
+            // Bump the generation first so no late live pass can emit a partial
+            // that overwrites the final transcript.
+            recordingGeneration.incrementAndGet();
+            stopLiveDictation();
+
             byte[] wavBytes;
             try {
                 wavBytes = recordingService.stop();
@@ -139,6 +183,102 @@ public class VoiceInputHandler extends BaseMessageHandler {
                 sendTranscript(false, null, e.getMessage());
             }
         });
+    }
+
+    /**
+     * Start streaming partial transcripts if live dictation is enabled and the
+     * local engine is in use.
+     *
+     * <p>Live mode is deliberately local-only: each pass is a full
+     * transcription request, so running it against a paid cloud endpoint would
+     * bill the user roughly once per second of speech.</p>
+     */
+    private void maybeStartLiveDictation() {
+        JsonObject config;
+        try {
+            config = context.getSettingsService().getVoiceInputConfig();
+        } catch (Exception e) {
+            LOG.warn("[VoiceInput] Could not read config for live dictation: " + e.getMessage());
+            return;
+        }
+
+        boolean liveEnabled = config.has("liveDictation")
+                && !config.get("liveDictation").isJsonNull()
+                && config.get("liveDictation").getAsBoolean();
+        boolean isLocal = config.has("mode")
+                && !config.get("mode").isJsonNull()
+                && "local".equals(config.get("mode").getAsString());
+        if (!liveEnabled || !isLocal) {
+            return;
+        }
+
+        final long generation = recordingGeneration.get();
+        java.util.concurrent.ScheduledExecutorService executor =
+                java.util.concurrent.Executors.newSingleThreadScheduledExecutor(runnable -> {
+                    Thread thread = new Thread(runnable, "cc-gui-voice-live");
+                    thread.setDaemon(true);
+                    return thread;
+                });
+        liveExecutor = executor;
+
+        executor.scheduleWithFixedDelay(
+                () -> runLivePass(generation, config),
+                LIVE_TICK_MILLIS, LIVE_TICK_MILLIS, TimeUnit.MILLISECONDS);
+        LOG.info("[VoiceInput] Live dictation started");
+    }
+
+    /**
+     * One live pass: snapshot the audio so far, transcribe it, and emit the
+     * text as a partial. Skipped when a previous pass is still running, so a
+     * slow model degrades to fewer updates instead of building a backlog.
+     */
+    private void runLivePass(long generation, JsonObject config) {
+        if (generation != recordingGeneration.get() || !recordingService.isRecording()) {
+            return;
+        }
+        if (!livePassInFlight.compareAndSet(false, true)) {
+            return;
+        }
+
+        try {
+            if (recordingService.getCapturedSeconds() < LIVE_MIN_SECONDS) {
+                return;
+            }
+            byte[] wav = recordingService.snapshot(LIVE_WINDOW_SECONDS);
+            if (wav.length == 0) {
+                return;
+            }
+
+            JsonObject target = resolveTranscriptionTarget(config);
+            String text = transcriptionService.transcribe(wav, target);
+
+            // Recording may have ended while this pass was running.
+            if (generation != recordingGeneration.get()) {
+                return;
+            }
+            String trimmed = text == null ? "" : text.trim();
+            if (!trimmed.isEmpty() && !trimmed.equals(lastPartialText.get())) {
+                lastPartialText.set(trimmed);
+                sendPartialTranscript(trimmed);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            // Partial failures are non-fatal: the final transcription on stop is
+            // what the user actually receives.
+            LOG.debug("[VoiceInput] Live pass failed: " + e.getMessage());
+        } finally {
+            livePassInFlight.set(false);
+        }
+    }
+
+    private void stopLiveDictation() {
+        java.util.concurrent.ScheduledExecutorService executor = liveExecutor;
+        liveExecutor = null;
+        if (executor != null) {
+            executor.shutdownNow();
+            LOG.info("[VoiceInput] Live dictation stopped");
+        }
     }
 
     /**
@@ -488,6 +628,12 @@ public class VoiceInputHandler extends BaseMessageHandler {
             payload.addProperty("error", error);
         }
         callJavaScript("window.onVoiceRecordingState", escapeJs(gson.toJson(payload)));
+    }
+
+    private void sendPartialTranscript(String text) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("text", text);
+        callJavaScript("window.onVoicePartialTranscript", escapeJs(gson.toJson(payload)));
     }
 
     private void sendTranscript(boolean success, String text, String error) {

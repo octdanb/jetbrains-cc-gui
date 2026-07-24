@@ -25,6 +25,7 @@ describe('voiceInputConfig', () => {
       language: 'en',
       localModel: 'Xenova/whisper-small',
       localDevice: 'cpu',
+      liveDictation: true,
     });
 
     unsubscribe();

@@ -46,6 +46,21 @@
   50% { opacity: 0.55; }
 }
 
+/* ============================================================
+   Live dictation partial text
+   ============================================================ */
+/* Transient machine-written text shown while speaking. Visually distinct so it
+   is obvious this text is still being revised and is not yet committed. */
+.input-editable [data-voice-partial] {
+  color: var(--text-secondary);
+  border-bottom: 1px dotted var(--text-tertiary);
+  opacity: 0.85;
+  /* contenteditable=false makes this an atomic unit; keep it inline so it flows
+     with surrounding typed text. */
+  display: inline;
+  white-space: pre-wrap;
+}
+
 /* Not set up yet: reads as disabled, but still clickable so the click can
    explain what to configure (a truly dead button explains nothing). */
 .voice-input-button.is-unavailable {

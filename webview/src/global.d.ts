@@ -557,6 +557,12 @@ interface Window {
   onVoiceRecordingState?: (json: string) => void;
 
   /**
+   * Live (partial) transcript while recording, for realtime dictation.
+   * Payload: {text}
+   */
+  onVoicePartialTranscript?: (json: string) => void;
+
+  /**
    * Voice transcription result from the Java transcription service.
    * Payload: {success, text?, error?}
    */

@@ -126,6 +126,65 @@ public class VoiceRecordingService {
         }
     }
 
+    /**
+     * Snapshot the audio captured so far <em>without</em> stopping the
+     * recording, as a self-contained WAV file. Used for live (rolling-window)
+     * dictation: each snapshot is re-transcribed to produce a partial result.
+     *
+     * <p>Whisper consumes fixed 30-second windows, so only the most recent
+     * {@code maxSeconds} of audio is returned. Re-transcribing the tail keeps
+     * latency bounded no matter how long the user talks; text older than the
+     * window has already been committed by the caller.</p>
+     *
+     * @param maxSeconds how many trailing seconds to include (<= 0 means all)
+     * @return WAV bytes, or an empty array when nothing has been captured yet
+     */
+    public byte[] snapshot(double maxSeconds) throws IOException {
+        byte[] pcm;
+        synchronized (lock) {
+            if (captureBuffer == null) {
+                return new byte[0];
+            }
+            pcm = captureBuffer.toByteArray();
+        }
+        if (pcm.length == 0) {
+            return new byte[0];
+        }
+
+        AudioFormat format = new AudioFormat(SAMPLE_RATE, SAMPLE_SIZE_BITS, CHANNELS, true, false);
+        int frameSize = format.getFrameSize();
+
+        if (maxSeconds > 0) {
+            int maxBytes = (int) (SAMPLE_RATE * frameSize * maxSeconds);
+            if (pcm.length > maxBytes) {
+                // Trim from the start, keeping the offset frame-aligned so we
+                // never slice a sample in half (which would inject a click).
+                int offset = pcm.length - maxBytes;
+                offset -= offset % frameSize;
+                pcm = java.util.Arrays.copyOfRange(pcm, offset, pcm.length);
+            }
+        }
+
+        long frameCount = pcm.length / frameSize;
+        try (AudioInputStream audioStream = new AudioInputStream(new ByteArrayInputStream(pcm), format, frameCount);
+             ByteArrayOutputStream wavOut = new ByteArrayOutputStream()) {
+            AudioSystem.write(audioStream, javax.sound.sampled.AudioFileFormat.Type.WAVE, wavOut);
+            return wavOut.toByteArray();
+        }
+    }
+
+    /**
+     * Duration of audio captured so far, in seconds.
+     */
+    public double getCapturedSeconds() {
+        synchronized (lock) {
+            if (captureBuffer == null) {
+                return 0;
+            }
+            return captureBuffer.size() / (SAMPLE_RATE * (SAMPLE_SIZE_BITS / 8.0) * CHANNELS);
+        }
+    }
+
     /** Stop capturing and discard everything recorded so far. */
     public void cancel() {
         try {

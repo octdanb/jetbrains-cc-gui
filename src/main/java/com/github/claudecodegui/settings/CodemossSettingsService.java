@@ -1185,7 +1185,7 @@ public class CodemossSettingsService {
      * Get the voice input (speech-to-text) configuration.
      * Missing fields are filled with defaults so callers always get a complete object.
      *
-     * @return {enabled, mode, baseUrl, apiKey, model, language, localModel, localDevice}
+     * @return {enabled, mode, baseUrl, apiKey, model, language, localModel, localDevice, liveDictation}
      */
     public JsonObject getVoiceInputConfig() throws IOException {
         JsonObject config = readConfig();
@@ -1204,6 +1204,7 @@ public class CodemossSettingsService {
         result.addProperty("localModel", readStringOrDefault(stored, "localModel", DEFAULT_VOICE_INPUT_LOCAL_MODEL));
         result.addProperty("localDevice",
                 normalizeVoiceInputDevice(readStringOrDefault(stored, "localDevice", VOICE_INPUT_DEVICE_CPU)));
+        result.addProperty("liveDictation", readBooleanOrDefault(stored, "liveDictation", true));
         return result;
     }
 
@@ -1225,6 +1226,7 @@ public class CodemossSettingsService {
                 readStringOrDefault(newConfig, "localModel", DEFAULT_VOICE_INPUT_LOCAL_MODEL).trim());
         voiceConfig.addProperty("localDevice",
                 normalizeVoiceInputDevice(readStringOrDefault(newConfig, "localDevice", VOICE_INPUT_DEVICE_CPU)));
+        voiceConfig.addProperty("liveDictation", readBooleanOrDefault(newConfig, "liveDictation", true));
 
         config.add(VOICE_INPUT_KEY, voiceConfig);
         writeConfig(config);
