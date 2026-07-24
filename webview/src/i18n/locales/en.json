@@ -121,6 +121,13 @@
       "userContext": "Context: \"{{context}}\"",
       "expand": "Expand summary",
       "collapse": "Collapse summary"
+    },
+    "voice": {
+      "startRecording": "Dictate prompt (speech-to-text)",
+      "stopRecording": "Stop recording and transcribe",
+      "transcribing": "Transcribing...",
+      "emptyTranscript": "No speech detected",
+      "transcriptionFailed": "Transcription failed. Check Voice & Remote settings."
     }
   },
   "settings": {
@@ -923,6 +930,32 @@
         "title": "Export Prompts",
         "selectHint": "Select prompts to export",
         "confirmExport": "Confirm Export"
+      }
+    },
+    "voiceRemote": {
+      "title": "Voice & Remote",
+      "description": "Dictate prompts with your voice and control sessions from the Claude mobile app.",
+      "voice": {
+        "label": "Voice Input (Speech-to-Text)",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "baseUrl": "API Base URL",
+        "apiKey": "API Key",
+        "model": "Model",
+        "language": "Language (optional)",
+        "languagePlaceholder": "e.g. en, zh — leave empty for auto detect",
+        "hint": "Shows a mic button in the input box in Plan Mode and Agent Mode. Audio is recorded by the IDE and sent to the OpenAI-compatible transcription endpoint configured above (e.g. whisper-1 or gpt-4o-mini-transcribe).",
+        "saved": "Voice input settings saved"
+      },
+      "remote": {
+        "label": "Remote Control (Claude App)",
+        "description": "Runs `claude remote-control` in the IDE terminal. Scan the QR code (press Space in the terminal) or open the session URL to pair with the Claude mobile app, then start sessions and answer permission prompts and questions from your phone.",
+        "note": "Remote Control requires Claude Code v2.1.52+ signed in with a claude.ai account (Pro/Max/Team/Enterprise). It runs as a separate interactive CLI session in the terminal — chat sessions started in this panel cannot be remote-controlled because the CLI does not support Remote Control for programmatically driven sessions.",
+        "continueSession": "Resume the most recent Remote Control session from this project (-c)",
+        "launch": "Launch Remote Control",
+        "launched": "Remote Control started in the IDE terminal",
+        "launchFailed": "Failed to launch Remote Control",
+        "hint": "Requires the Terminal plugin to be enabled. The claude CLI path from Basic settings is used when configured."
       }
     }
   },

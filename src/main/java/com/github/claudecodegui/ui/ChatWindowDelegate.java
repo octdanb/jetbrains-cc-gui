@@ -19,6 +19,8 @@ import com.github.claudecodegui.handler.NodeProcessHandler;
 import com.github.claudecodegui.handler.PermissionHandler;
 import com.github.claudecodegui.handler.PromptEnhancerHandler;
 import com.github.claudecodegui.handler.PromptHandler;
+import com.github.claudecodegui.handler.RemoteControlHandler;
+import com.github.claudecodegui.handler.VoiceInputHandler;
 import com.github.claudecodegui.handler.provider.CustomModelPricingHandler;
 import com.github.claudecodegui.handler.provider.ProviderHandler;
 import com.github.claudecodegui.handler.RewindHandler;
@@ -271,6 +273,8 @@ public class ChatWindowDelegate {
         messageDispatcher.registerHandler(new DependencyHandler(handlerContext));
         messageDispatcher.registerHandler(new ClipboardHandler(handlerContext));
         messageDispatcher.registerHandler(new NodeProcessHandler(handlerContext));
+        messageDispatcher.registerHandler(new VoiceInputHandler(handlerContext));
+        messageDispatcher.registerHandler(new RemoteControlHandler(handlerContext));
 
         messageDispatcher.registerHandler(new WindowEventHandler(handlerContext, new WindowEventHandler.Callback() {
             @Override public void onHeartbeat(String content) { host.getWebviewWatchdog().handleHeartbeat(content); }

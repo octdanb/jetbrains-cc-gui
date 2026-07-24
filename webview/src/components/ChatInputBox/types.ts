@@ -655,6 +655,9 @@ export interface ChatInputBoxProps {
   onLongContextChange?: (enabled: boolean) => void;
 }
 
+/** Voice input recording state (mirrors useVoiceInput) */
+export type VoiceState = 'idle' | 'recording' | 'transcribing';
+
 /**
  * ButtonArea component props
  */
@@ -712,6 +715,12 @@ export interface ButtonAreaProps {
   longContextEnabled?: boolean;
   /** Toggle long context callback */
   onLongContextChange?: (enabled: boolean) => void;
+  /** Whether the voice input (mic) button is visible */
+  voiceInputVisible?: boolean;
+  /** Voice input recording state */
+  voiceState?: VoiceState;
+  /** Toggle voice recording callback */
+  onVoiceToggle?: () => void;
 }
 
 /**

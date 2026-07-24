@@ -26,6 +26,7 @@ export {
   type HistoryItem,
 } from './inputHistoryStorage.js';
 export { useSubmitHandler } from './useSubmitHandler.js';
+export { useVoiceInput, type VoiceRecordingState } from './useVoiceInput.js';
 export { useKeyboardHandler } from './useKeyboardHandler.js';
 export { useNativeEventCapture } from './useNativeEventCapture.js';
 export { useControlledValueSync } from './useControlledValueSync.js';

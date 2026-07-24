@@ -1168,6 +1168,76 @@ public class CodemossSettingsService {
         return getPrompt(id, PromptScope.GLOBAL, null);
     }
 
+    // ==================== Voice Input (Speech-to-Text) Management ====================
+
+    private static final String VOICE_INPUT_KEY = "voiceInput";
+    private static final String DEFAULT_VOICE_INPUT_BASE_URL = "https://api.openai.com/v1";
+    private static final String DEFAULT_VOICE_INPUT_MODEL = "whisper-1";
+
+    /**
+     * Get the voice input (speech-to-text) configuration.
+     * Missing fields are filled with defaults so callers always get a complete object.
+     *
+     * @return {enabled, baseUrl, apiKey, model, language}
+     */
+    public JsonObject getVoiceInputConfig() throws IOException {
+        JsonObject config = readConfig();
+
+        JsonObject stored = config.has(VOICE_INPUT_KEY) && config.get(VOICE_INPUT_KEY).isJsonObject()
+                ? config.getAsJsonObject(VOICE_INPUT_KEY)
+                : new JsonObject();
+
+        JsonObject result = new JsonObject();
+        result.addProperty("enabled", readBooleanOrDefault(stored, "enabled", true));
+        result.addProperty("baseUrl", readStringOrDefault(stored, "baseUrl", DEFAULT_VOICE_INPUT_BASE_URL));
+        result.addProperty("apiKey", readStringOrDefault(stored, "apiKey", ""));
+        result.addProperty("model", readStringOrDefault(stored, "model", DEFAULT_VOICE_INPUT_MODEL));
+        result.addProperty("language", readStringOrDefault(stored, "language", ""));
+        return result;
+    }
+
+    /**
+     * Persist the voice input (speech-to-text) configuration.
+     * Only known fields are stored.
+     */
+    public void setVoiceInputConfig(JsonObject newConfig) throws IOException {
+        JsonObject config = readConfig();
+
+        JsonObject voiceConfig = new JsonObject();
+        voiceConfig.addProperty("enabled", readBooleanOrDefault(newConfig, "enabled", true));
+        voiceConfig.addProperty("baseUrl", readStringOrDefault(newConfig, "baseUrl", DEFAULT_VOICE_INPUT_BASE_URL).trim());
+        voiceConfig.addProperty("apiKey", readStringOrDefault(newConfig, "apiKey", ""));
+        voiceConfig.addProperty("model", readStringOrDefault(newConfig, "model", DEFAULT_VOICE_INPUT_MODEL).trim());
+        voiceConfig.addProperty("language", readStringOrDefault(newConfig, "language", "").trim());
+
+        config.add(VOICE_INPUT_KEY, voiceConfig);
+        writeConfig(config);
+        LOG.info("[CodemossSettings] Voice input config saved (enabled="
+                + voiceConfig.get("enabled").getAsBoolean() + ", model=" + voiceConfig.get("model").getAsString() + ")");
+    }
+
+    private static boolean readBooleanOrDefault(JsonObject obj, String key, boolean defaultValue) {
+        if (obj != null && obj.has(key) && !obj.get(key).isJsonNull()) {
+            try {
+                return obj.get(key).getAsBoolean();
+            } catch (RuntimeException e) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
+    }
+
+    private static String readStringOrDefault(JsonObject obj, String key, String defaultValue) {
+        if (obj != null && obj.has(key) && !obj.get(key).isJsonNull()) {
+            try {
+                return obj.get(key).getAsString();
+            } catch (RuntimeException e) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
+    }
+
     // ==================== Sound Notification Management ====================
 
     /**

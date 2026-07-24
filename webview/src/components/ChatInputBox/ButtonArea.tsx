@@ -94,6 +94,9 @@ export const ButtonArea = ({
   onAddModel,
   longContextEnabled = true,
   onLongContextChange,
+  voiceInputVisible = false,
+  voiceState = 'idle',
+  onVoiceToggle,
 }: ButtonAreaProps) => {
   const { t } = useTranslation();
   // const fileInputRef = useRef<HTMLInputElement>(null);
@@ -251,6 +254,26 @@ export const ButtonArea = ({
     onEnhancePrompt?.();
   }, [onEnhancePrompt]);
 
+  /**
+   * Handle voice input (mic) button click
+   */
+  const handleVoiceClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onVoiceToggle?.();
+  }, [onVoiceToggle]);
+
+  const voiceIcon = voiceState === 'transcribing'
+    ? 'codicon-loading codicon-modifier-spin'
+    : voiceState === 'recording'
+      ? 'codicon-record'
+      : 'codicon-mic';
+
+  const voiceTooltip = voiceState === 'recording'
+    ? t('chat.voice.stopRecording')
+    : voiceState === 'transcribing'
+      ? t('chat.voice.transcribing')
+      : t('chat.voice.startRecording');
+
   return (
     <div className="button-area" data-provider={currentProvider}>
       {/* Left side: selectors */}
@@ -281,6 +304,18 @@ export const ButtonArea = ({
       {/* Right side: tool buttons */}
       <div className="button-area-right">
         <div className="button-divider" />
+
+        {/* Voice input (speech-to-text) button — plan/agent modes only */}
+        {voiceInputVisible && (
+          <button
+            className={`voice-input-button has-tooltip ${voiceState === 'recording' ? 'is-recording' : ''}`}
+            onClick={handleVoiceClick}
+            disabled={voiceState === 'transcribing'}
+            data-tooltip={voiceTooltip}
+          >
+            <span className={`codicon ${voiceIcon}`} />
+          </button>
+        )}
 
         {/* Enhance prompt button */}
         <button

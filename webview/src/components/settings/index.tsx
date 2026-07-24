@@ -18,6 +18,7 @@ import PromptSection from './PromptSection';
 import CommitSection from './CommitSection';
 import PromptEnhancerSection from './PromptEnhancerSection';
 import OtherSettingsSection from './OtherSettingsSection';
+import VoiceRemoteSection from './VoiceRemoteSection';
 import { SkillsSettingsSection } from '../skills';
 import SettingsDialogs from './SettingsDialogs';
 import { setNewSessionConfirmEnabled as persistNewSessionConfirmEnabled } from '../../utils/skipNewSessionConfirm';
@@ -644,6 +645,11 @@ const SettingsView = ({
           {/* Skills */}
           <div style={currentTab === 'skills' ? BLOCK_STYLE : NONE_STYLE}>
             <SkillsSettingsSection currentProvider={currentProvider} />
+          </div>
+
+          {/* Voice input & Remote Control */}
+          <div style={currentTab === 'voiceRemote' ? BLOCK_STYLE : NONE_STYLE}>
+            <VoiceRemoteSection addToast={addToast} />
           </div>
 
           {/* Other settings */}
