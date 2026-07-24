@@ -127,7 +127,10 @@
       "stopRecording": "停止录音并转写",
       "transcribing": "转写中...",
       "emptyTranscript": "未检测到语音",
-      "transcriptionFailed": "转写失败，请检查「语音与远程」设置。"
+      "transcriptionFailed": "转写失败，请检查「语音与远程」设置。",
+      "setupRequired": "语音输入尚未配置——请打开「设置 → 语音与远程」并点击「安装本地 Whisper」",
+      "modelRequired": "语音模型尚未下载——请打开「设置 → 语音与远程」并运行安装",
+      "apiKeyRequired": "请在「设置 → 语音与远程」中填写转写 API 密钥，或切换为本地 Whisper"
     }
   },
   "settings": {
@@ -965,7 +968,8 @@
         "setupStarting": "正在开始安装...",
         "setupSuccess": "本地 Whisper 已就绪——语音输入现在完全离线运行",
         "setupFailed": "本地 Whisper 安装失败",
-        "localHint": "将 Whisper 运行时（transformers.js + ONNX）安装到 ~/.codemoss/dependencies/whisper-local，并从 Hugging Face 下载模型（可通过 HF_ENDPOINT 使用镜像）。音频不会离开本机，也无需 API 密钥。IDE 重启后的首次转写会因加载模型而多花几秒。"
+        "localHint": "将 Whisper 运行时（transformers.js + ONNX）安装到 ~/.codemoss/dependencies/whisper-local，并从 Hugging Face 下载模型（可通过 HF_ENDPOINT 使用镜像）。音频不会离开本机，也无需 API 密钥。IDE 重启后的首次转写会因加载模型而多花几秒。",
+        "wasmFallbackNote": "由于本机的原生语音后端崩溃，当前使用可移植的 WASM 后端。功能正常但速度较慢——可重新运行安装以再次尝试原生后端。"
       },
       "remote": {
         "label": "远程控制（Claude 应用）",

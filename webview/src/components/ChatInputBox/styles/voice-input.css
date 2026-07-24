@@ -45,3 +45,16 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
 }
+
+/* Not set up yet: reads as disabled, but still clickable so the click can
+   explain what to configure (a truly dead button explains nothing). */
+.voice-input-button.is-unavailable {
+  opacity: 0.4;
+  cursor: help;
+}
+
+.voice-input-button.is-unavailable:hover:not(:disabled) {
+  background: var(--button-bg);
+  color: var(--text-secondary);
+  opacity: 0.6;
+}

@@ -161,7 +161,7 @@ public class RemoteControlHandler extends BaseMessageHandler {
                 Method createShellWidget = managerClass.getMethod(
                         "createShellWidget", String.class, String.class, boolean.class, boolean.class);
                 Object widget = createShellWidget.invoke(manager, workingDirectory, TERMINAL_TAB_NAME, true, false);
-                widget.getClass().getMethod("sendCommandToExecute", String.class).invoke(widget, command);
+                invokeWidgetMethod(widget, "sendCommandToExecute", command);
                 return;
             } catch (NoSuchMethodException e) {
                 lastFailure = e;
@@ -172,7 +172,7 @@ public class RemoteControlHandler extends BaseMessageHandler {
                 Method createLocalShellWidget = managerClass.getMethod(
                         "createLocalShellWidget", String.class, String.class);
                 Object widget = createLocalShellWidget.invoke(manager, workingDirectory, TERMINAL_TAB_NAME);
-                widget.getClass().getMethod("executeCommand", String.class).invoke(widget, command);
+                invokeWidgetMethod(widget, "executeCommand", command);
                 return;
             } catch (NoSuchMethodException e) {
                 lastFailure = e;
@@ -183,6 +183,49 @@ public class RemoteControlHandler extends BaseMessageHandler {
             throw lastFailure;
         }
         throw new IllegalStateException("No compatible terminal API found", lastFailure);
+    }
+
+    /**
+     * Invoke a single-String-argument method on a widget whose concrete class
+     * may be package-private (e.g. {@code createShellWidget} returns a
+     * {@code JBTerminalWidget$TerminalWidgetBridge}). Looking the method up on
+     * the runtime class makes {@code invoke} fail with IllegalAccessException,
+     * so resolve it against a public supertype (interface or superclass)
+     * first, and only then fall back to forcing accessibility.
+     */
+    private static void invokeWidgetMethod(Object widget, String methodName, String arg) throws Exception {
+        Method method = findPubliclyAccessibleMethod(widget.getClass(), methodName);
+        if (method == null) {
+            method = widget.getClass().getMethod(methodName, String.class);
+            if (!method.trySetAccessible()) {
+                throw new IllegalStateException(
+                        "Method " + methodName + " is not accessible on " + widget.getClass().getName());
+            }
+        }
+        method.invoke(widget, arg);
+    }
+
+    /**
+     * Walk the class hierarchy looking for {@code methodName(String)} declared
+     * on a public class or interface, which is always legal to invoke.
+     */
+    private static Method findPubliclyAccessibleMethod(Class<?> type, String methodName) {
+        for (Class<?> clazz = type; clazz != null; clazz = clazz.getSuperclass()) {
+            if (java.lang.reflect.Modifier.isPublic(clazz.getModifiers())) {
+                try {
+                    return clazz.getMethod(methodName, String.class);
+                } catch (NoSuchMethodException ignored) {
+                    // keep looking
+                }
+            }
+            for (Class<?> iface : clazz.getInterfaces()) {
+                Method fromInterface = findPubliclyAccessibleMethod(iface, methodName);
+                if (fromInterface != null) {
+                    return fromInterface;
+                }
+            }
+        }
+        return null;
     }
 
     private void sendResult(boolean success, String error) {

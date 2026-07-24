@@ -558,7 +558,13 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       window.insertCodeSnippetAtCursor?.(text);
     }, []);
 
-    const { voiceState, voiceEnabled, toggleVoiceRecording } = useVoiceInput({
+    const {
+      voiceState,
+      voiceEnabled,
+      voiceReady,
+      voiceUnavailableReason,
+      toggleVoiceRecording,
+    } = useVoiceInput({
       insertTranscript: insertVoiceTranscript,
       addToast,
       t,
@@ -741,6 +747,8 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onLongContextChange={onLongContextChange}
           voiceInputVisible={voiceInputVisible}
           voiceState={voiceState}
+          voiceReady={voiceReady}
+          voiceUnavailableReason={voiceUnavailableReason}
           onVoiceToggle={toggleVoiceRecording}
           fileCompletion={fileCompletion}
           commandCompletion={commandCompletion}

@@ -719,6 +719,10 @@ export interface ButtonAreaProps {
   voiceInputVisible?: boolean;
   /** Voice input recording state */
   voiceState?: VoiceState;
+  /** Whether dictation is set up and usable (false renders a disabled mic) */
+  voiceReady?: boolean;
+  /** Localized reason dictation is unavailable, shown as the mic tooltip */
+  voiceUnavailableReason?: string | null;
   /** Toggle voice recording callback */
   onVoiceToggle?: () => void;
 }

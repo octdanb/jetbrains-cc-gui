@@ -7,7 +7,8 @@
  * "local" mode.
  *
  * Usage:
- *   node server.js --root <whisper-install-root> [--model Xenova/whisper-base] [--port 0]
+ *   node server.js --root <whisper-install-root> [--model Xenova/whisper-base]
+ *                  [--port 0] [--device cpu|wasm]
  *
  * Protocol (stdout, line-oriented, parsed by the Java side):
  *   [WHISPER_LOG] <text>            progress / diagnostics
@@ -17,13 +18,14 @@
 
 import { parseArgs } from 'node:util';
 import { createWhisperServer } from './create-server.js';
-import { DEFAULT_MODEL, loadTranscriber } from './whisper-runtime.js';
+import { DEFAULT_MODEL, DEVICE_WASM, loadTranscriber } from './whisper-runtime.js';
 
 const { values: args } = parseArgs({
     options: {
         root: { type: 'string' },
         model: { type: 'string' },
         port: { type: 'string' },
+        device: { type: 'string' },
     },
 });
 
@@ -32,15 +34,16 @@ if (!args.root) {
     process.exit(1);
 }
 const model = args.model || DEFAULT_MODEL;
+const device = args.device === DEVICE_WASM ? DEVICE_WASM : 'cpu';
 
 let transcriber;
 try {
-    console.log(`[WHISPER_LOG] Loading model ${model}...`);
+    console.log(`[WHISPER_LOG] Loading model ${model} (device=${device})...`);
     transcriber = await loadTranscriber(args.root, model, (progress) => {
         if (progress && progress.status === 'progress' && typeof progress.progress === 'number') {
             console.log(`[WHISPER_LOG] Downloading ${progress.file}: ${Math.round(progress.progress)}%`);
         }
-    });
+    }, device);
     console.log('[WHISPER_LOG] Model loaded');
 } catch (error) {
     console.error(`[WHISPER_ERROR] ${error.message}`);

@@ -82,15 +82,27 @@ export function resolveTransformersEntry(root) {
 }
 
 /**
+ * Execution backends we support.
+ *
+ * - 'cpu'  : onnxruntime-node native binary. Fastest, but aborts the process
+ *            (SIGABRT / exit 134) on some CPUs and glibc combinations.
+ * - 'wasm' : onnxruntime-web WASM build. Slower but pure-JS and portable —
+ *            our fallback when the native backend crashes.
+ */
+export const DEVICE_CPU = 'cpu';
+export const DEVICE_WASM = 'wasm';
+
+/**
  * Import transformers.js and create the ASR pipeline for the given model.
  * Downloads model files into <root>/models on first use.
  *
  * @param {string} root whisper-local install root
  * @param {string} model HF model id, e.g. Xenova/whisper-base
  * @param {(progress: object) => void} [onProgress] transformers.js progress callback
+ * @param {string} [device] 'cpu' (native, default) or 'wasm' (portable fallback)
  * @returns {Promise<Function>} the transcriber pipeline
  */
-export async function loadTranscriber(root, model, onProgress) {
+export async function loadTranscriber(root, model, onProgress, device) {
     const entry = resolveTransformersEntry(root);
     const imported = await import(pathToFileURL(entry).href);
     const mod = imported.pipeline ? imported : imported.default;
@@ -108,10 +120,22 @@ export async function loadTranscriber(root, model, onProgress) {
         mod.env.remoteHost = hfEndpoint.replace(/\/+$/, '') + '/';
     }
 
+    const resolvedDevice = device === DEVICE_WASM ? DEVICE_WASM : DEVICE_CPU;
+    if (resolvedDevice === DEVICE_WASM) {
+        // Keep WASM single-threaded: SharedArrayBuffer-backed threading is the
+        // other common source of hard aborts under Node.
+        try {
+            mod.env.backends.onnx.wasm.numThreads = 1;
+        } catch {
+            // Older builds may not expose this knob — non-fatal.
+        }
+    }
+
     return mod.pipeline('automatic-speech-recognition', model || DEFAULT_MODEL, {
         // Quantized weights: much smaller download, minor accuracy cost —
         // the right default for dictation.
         dtype: 'q8',
+        device: resolvedDevice,
         ...(onProgress ? { progress_callback: onProgress } : {}),
     });
 }

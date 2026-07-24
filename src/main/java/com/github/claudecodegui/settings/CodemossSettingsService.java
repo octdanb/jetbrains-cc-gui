@@ -1176,12 +1176,16 @@ public class CodemossSettingsService {
     private static final String DEFAULT_VOICE_INPUT_LOCAL_MODEL = "Xenova/whisper-base";
     private static final String VOICE_INPUT_MODE_CLOUD = "cloud";
     private static final String VOICE_INPUT_MODE_LOCAL = "local";
+    /** Local voice input is the default: offline, no API key required. */
+    private static final String DEFAULT_VOICE_INPUT_MODE = VOICE_INPUT_MODE_LOCAL;
+    private static final String VOICE_INPUT_DEVICE_CPU = "cpu";
+    private static final String VOICE_INPUT_DEVICE_WASM = "wasm";
 
     /**
      * Get the voice input (speech-to-text) configuration.
      * Missing fields are filled with defaults so callers always get a complete object.
      *
-     * @return {enabled, mode, baseUrl, apiKey, model, language, localModel}
+     * @return {enabled, mode, baseUrl, apiKey, model, language, localModel, localDevice}
      */
     public JsonObject getVoiceInputConfig() throws IOException {
         JsonObject config = readConfig();
@@ -1192,12 +1196,14 @@ public class CodemossSettingsService {
 
         JsonObject result = new JsonObject();
         result.addProperty("enabled", readBooleanOrDefault(stored, "enabled", true));
-        result.addProperty("mode", normalizeVoiceInputMode(readStringOrDefault(stored, "mode", VOICE_INPUT_MODE_CLOUD)));
+        result.addProperty("mode", normalizeVoiceInputMode(readStringOrDefault(stored, "mode", DEFAULT_VOICE_INPUT_MODE)));
         result.addProperty("baseUrl", readStringOrDefault(stored, "baseUrl", DEFAULT_VOICE_INPUT_BASE_URL));
         result.addProperty("apiKey", readStringOrDefault(stored, "apiKey", ""));
         result.addProperty("model", readStringOrDefault(stored, "model", DEFAULT_VOICE_INPUT_MODEL));
         result.addProperty("language", readStringOrDefault(stored, "language", ""));
         result.addProperty("localModel", readStringOrDefault(stored, "localModel", DEFAULT_VOICE_INPUT_LOCAL_MODEL));
+        result.addProperty("localDevice",
+                normalizeVoiceInputDevice(readStringOrDefault(stored, "localDevice", VOICE_INPUT_DEVICE_CPU)));
         return result;
     }
 
@@ -1210,13 +1216,15 @@ public class CodemossSettingsService {
 
         JsonObject voiceConfig = new JsonObject();
         voiceConfig.addProperty("enabled", readBooleanOrDefault(newConfig, "enabled", true));
-        voiceConfig.addProperty("mode", normalizeVoiceInputMode(readStringOrDefault(newConfig, "mode", VOICE_INPUT_MODE_CLOUD)));
+        voiceConfig.addProperty("mode", normalizeVoiceInputMode(readStringOrDefault(newConfig, "mode", DEFAULT_VOICE_INPUT_MODE)));
         voiceConfig.addProperty("baseUrl", readStringOrDefault(newConfig, "baseUrl", DEFAULT_VOICE_INPUT_BASE_URL).trim());
         voiceConfig.addProperty("apiKey", readStringOrDefault(newConfig, "apiKey", ""));
         voiceConfig.addProperty("model", readStringOrDefault(newConfig, "model", DEFAULT_VOICE_INPUT_MODEL).trim());
         voiceConfig.addProperty("language", readStringOrDefault(newConfig, "language", "").trim());
         voiceConfig.addProperty("localModel",
                 readStringOrDefault(newConfig, "localModel", DEFAULT_VOICE_INPUT_LOCAL_MODEL).trim());
+        voiceConfig.addProperty("localDevice",
+                normalizeVoiceInputDevice(readStringOrDefault(newConfig, "localDevice", VOICE_INPUT_DEVICE_CPU)));
 
         config.add(VOICE_INPUT_KEY, voiceConfig);
         writeConfig(config);
@@ -1226,7 +1234,11 @@ public class CodemossSettingsService {
     }
 
     private static String normalizeVoiceInputMode(String mode) {
-        return VOICE_INPUT_MODE_LOCAL.equals(mode) ? VOICE_INPUT_MODE_LOCAL : VOICE_INPUT_MODE_CLOUD;
+        return VOICE_INPUT_MODE_CLOUD.equals(mode) ? VOICE_INPUT_MODE_CLOUD : VOICE_INPUT_MODE_LOCAL;
+    }
+
+    private static String normalizeVoiceInputDevice(String device) {
+        return VOICE_INPUT_DEVICE_WASM.equals(device) ? VOICE_INPUT_DEVICE_WASM : VOICE_INPUT_DEVICE_CPU;
     }
 
     private static boolean readBooleanOrDefault(JsonObject obj, String key, boolean defaultValue) {

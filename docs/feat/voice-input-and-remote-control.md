@@ -21,6 +21,13 @@ Both are configured under **Settings → Voice & Remote**.
 - Click to start recording (button pulses red), click again to stop. The audio
   is transcribed and the text is inserted at the caret in the input box.
 - Recording is capped at 4 minutes as a safety limit.
+- **When dictation is not set up yet** the mic is still shown but dimmed
+  (`.is-unavailable`), and its tooltip — plus a toast on click — says exactly
+  what to do ("open Settings → Voice & Remote and click Set up local Whisper",
+  or "the model has not been downloaded yet", or for cloud mode "add an API
+  key"). It stays clickable on purpose: a dead button explains nothing.
+  Readiness comes from `useVoiceInput`, which combines the voice config with
+  the shared local-Whisper status store.
 
 ### Architecture
 
@@ -35,12 +42,12 @@ Audio is captured on the **Java side**, not in the webview:
 Transcription supports two engines (Settings → Voice & Remote → "Transcription
 engine"):
 
+- **Local Whisper (default)** — a one-click "Set up local Whisper" flow installs
+  a fully offline transcription runtime; no API key, audio never leaves the
+  machine. See "Local Whisper" below.
 - **Cloud API** — posts the WAV to an OpenAI-compatible endpoint
   (`{baseUrl}/audio/transcriptions`, Whisper API shape) using
   `java.net.http.HttpClient`. Any proxy that implements this API works.
-- **Local Whisper** — a one-click "Set up local Whisper" flow installs a fully
-  offline transcription runtime; no API key, audio never leaves the machine.
-  See "Local Whisper" below.
 
 ### Message flow
 
@@ -80,18 +87,22 @@ Stored in the Codemoss config under `voiceInput`:
 {
   "voiceInput": {
     "enabled": true,
-    "mode": "cloud",
+    "mode": "local",
     "baseUrl": "https://api.openai.com/v1",
     "apiKey": "sk-...",
     "model": "whisper-1",
     "language": "",
-    "localModel": "Xenova/whisper-base"
+    "localModel": "Xenova/whisper-base",
+    "localDevice": "cpu"
   }
 }
 ```
 
-`mode` is `"cloud"` or `"local"`. `language` is an optional ISO-639-1 hint;
-empty means auto-detect.
+`mode` is `"local"` (default) or `"cloud"`. `language` is an optional ISO-639-1
+hint; empty means auto-detect. `localDevice` is `"cpu"` (native ONNX) or
+`"wasm"` (portable fallback) — see "Execution backends" below. It must survive
+config round-trips through the webview store, or a working `wasm` fallback would
+be reset to `cpu` and the native crash would return.
 
 ### Local Whisper
 
@@ -121,6 +132,33 @@ stdin, and is killed by a JVM shutdown hook as a belt-and-braces measure.
 Model choices offered in the UI: `Xenova/whisper-tiny` (~40 MB),
 `Xenova/whisper-base` (~80 MB, default), `Xenova/whisper-small` (~250 MB).
 All are multilingual; the server drops the language hint for `.en` models.
+
+#### Execution backends (and the exit-134 fallback)
+
+`onnxruntime-node` (the fast native backend) aborts the whole process — SIGABRT,
+**exit code 134** — on some CPU/glibc combinations. Setup handles this
+automatically:
+
+1. Prefetch runs with `--device cpu`. Because it also *instantiates* the ONNX
+   session (not just downloads weights), a machine that cannot run the native
+   backend fails here, at setup time, rather than on the user's first dictation.
+2. A hard crash is distinguishable from an ordinary failure: the script emits no
+   `[WHISPER_ERROR]` line when it is killed, so a non-zero exit *without* that
+   marker raises `PrefetchCrashException`, while a diagnosed failure (bad model
+   id, no network) is reported as-is and not retried.
+3. On a crash, setup retries with `--device wasm` (onnxruntime-web, single
+   threaded — SharedArrayBuffer threading is the other common abort source),
+   tells the user in the progress line, and persists `localDevice: "wasm"` so
+   `LocalWhisperManager` starts the server on the same backend.
+
+Both the prefetch and server processes also get `NODE_OPTIONS
+--max-old-space-size=4096` (unless already set), since Whisper weight buffers
+can otherwise exhaust the default heap mid-load. When a crash yields no
+diagnosis, the last few non-`[WHISPER_LOG]` output lines are quoted in the error
+message instead of a bare exit code.
+
+The settings panel shows a note whenever `localDevice` is `wasm` so the slower
+transcription is not a mystery; re-running setup retries the native backend.
 
 Message flow:
 
@@ -198,6 +236,21 @@ Requirements (enforced by the CLI itself, surfaced in the settings UI):
 as `TerminalMonitorService`) so the Terminal plugin stays optional:
 `TerminalToolWindowManager.createShellWidget(...)` on 2024.1+, falling back to
 `createLocalShellWidget(...)` / legacy `TerminalView`.
+
+**Reflection gotcha (fixed):** `createShellWidget` returns a *package-private*
+implementation — `JBTerminalWidget$TerminalWidgetBridge`. Resolving
+`sendCommandToExecute` on that runtime class yields a `Method` whose declaring
+class is inaccessible from our package, so `invoke` throws
+
+```
+class ...RemoteControlHandler cannot access a member of class
+com.intellij.terminal.JBTerminalWidget$TerminalWidgetBridge with modifiers "public"
+```
+
+`invokeWidgetMethod` therefore resolves the method against a **public
+supertype** (interface or superclass) via `findPubliclyAccessibleMethod`, which
+walks the hierarchy and only considers classes/interfaces that are themselves
+public. `trySetAccessible()` remains as a last-resort fallback.
 
 ### Message flow
 

@@ -52,6 +52,8 @@ public class VoiceInputHandler extends BaseMessageHandler {
 
     /** Generous ceiling for npm install + model download during setup. */
     private static final long SETUP_STEP_TIMEOUT_MINUTES = 20;
+    /** How many trailing output lines to quote when prefetch crashes. */
+    private static final int PREFETCH_TAIL_LINES = 6;
 
     private final Gson gson = new Gson();
     private final VoiceRecordingService recordingService = new VoiceRecordingService();
@@ -181,8 +183,11 @@ public class VoiceInputHandler extends BaseMessageHandler {
         String localModel = config.has("localModel") && !config.get("localModel").isJsonNull()
                 ? config.get("localModel").getAsString().trim()
                 : LocalWhisperManager.DEFAULT_MODEL;
+        String localDevice = config.has("localDevice") && !config.get("localDevice").isJsonNull()
+                ? config.get("localDevice").getAsString().trim()
+                : "cpu";
 
-        String baseUrl = whisper.ensureServerRunning(nodeExecutable, bridgeDir, localModel);
+        String baseUrl = whisper.ensureServerRunning(nodeExecutable, bridgeDir, localModel, localDevice);
 
         JsonObject target = new JsonObject();
         target.addProperty("baseUrl", baseUrl);
@@ -286,12 +291,14 @@ public class VoiceInputHandler extends BaseMessageHandler {
                 }
 
                 sendSetupProgress("download", "Downloading model " + model + "...");
-                runModelPrefetch(model);
+                String device = prefetchModelWithFallback(model);
 
-                // Switch voice input to local mode so the mic works immediately.
+                // Switch voice input to local mode so the mic works immediately,
+                // remembering which execution backend actually worked.
                 JsonObject config = context.getSettingsService().getVoiceInputConfig();
                 config.addProperty("mode", "local");
                 config.addProperty("localModel", model);
+                config.addProperty("localDevice", device);
                 context.getSettingsService().setVoiceInputConfig(config);
                 JsonObject stored = context.getSettingsService().getVoiceInputConfig();
                 callJavaScript("window.updateVoiceInputConfig", escapeJs(gson.toJson(stored)));
@@ -307,10 +314,44 @@ public class VoiceInputHandler extends BaseMessageHandler {
     }
 
     /**
+     * Download the model, falling back from the native ONNX backend to the
+     * portable WASM one when the native one hard-crashes.
+     *
+     * <p>onnxruntime-node aborts the process (SIGABRT, exit 134) on some
+     * CPU/glibc combinations. An abort produces no {@code [WHISPER_ERROR]}
+     * line, which is how {@link PrefetchCrashException} is distinguished from
+     * an ordinary failure (bad model id, no network) that a retry would not
+     * fix.</p>
+     *
+     * @return the device that succeeded ("cpu" or "wasm")
+     */
+    private String prefetchModelWithFallback(String model) throws IOException, InterruptedException {
+        try {
+            runModelPrefetch(model, "cpu");
+            return "cpu";
+        } catch (PrefetchCrashException crash) {
+            LOG.warn("[VoiceInput] Native ONNX backend crashed (" + crash.getMessage()
+                    + "), retrying with the WASM backend");
+            sendSetupProgress("download",
+                    "The native speech runtime crashed on this machine — retrying with the portable "
+                    + "WASM backend (slower but more compatible)...");
+            runModelPrefetch(model, "wasm");
+            return "wasm";
+        }
+    }
+
+    /** Thrown when prefetch.js dies without reporting a diagnosable error. */
+    private static final class PrefetchCrashException extends IOException {
+        PrefetchCrashException(String message) {
+            super(message);
+        }
+    }
+
+    /**
      * Run prefetch.js so the model download happens during setup (with
      * progress) instead of stalling the first dictation.
      */
-    private void runModelPrefetch(String model) throws IOException, InterruptedException {
+    private void runModelPrefetch(String model, String device) throws IOException, InterruptedException {
         String nodeExecutable = context.getClaudeSDKBridge().getNodeExecutable();
         if (nodeExecutable == null || nodeExecutable.isBlank()) {
             throw new IOException("Node.js is not configured");
@@ -331,16 +372,28 @@ public class VoiceInputHandler extends BaseMessageHandler {
         command.add(LocalWhisperManager.getInstance().getWhisperRoot().toString());
         command.add("--model");
         command.add(model);
+        command.add("--device");
+        command.add(device);
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(bridgeDir);
         pb.redirectErrorStream(true);
         new EnvironmentConfigurator().updateProcessEnvironment(pb, nodeExecutable);
+        // Whisper weight buffers are large; the default heap can abort the
+        // process mid-download on 32-bit-ish default limits.
+        String existingNodeOptions = pb.environment().getOrDefault("NODE_OPTIONS", "");
+        if (!existingNodeOptions.contains("--max-old-space-size")) {
+            pb.environment().put("NODE_OPTIONS",
+                    (existingNodeOptions + " --max-old-space-size=4096").trim());
+        }
 
         LOG.info("[VoiceInput] Prefetching model: " + String.join(" ", command));
         Process process = pb.start();
         java.util.concurrent.atomic.AtomicReference<String> errorMessage =
                 new java.util.concurrent.atomic.AtomicReference<>("");
+        // Keep the last few output lines so a hard crash still yields a
+        // description instead of a bare exit code.
+        java.util.Deque<String> outputTail = new java.util.concurrent.ConcurrentLinkedDeque<>();
 
         // Drain output on a separate thread so the timeout below stays
         // effective even when the download stalls without producing output.
@@ -356,6 +409,11 @@ public class VoiceInputHandler extends BaseMessageHandler {
                         forwardPrefetchProgress(line.substring(progressIdx + "[WHISPER_PROGRESS]".length()).trim());
                     } else if (errorIdx >= 0) {
                         errorMessage.set(line.substring(errorIdx + "[WHISPER_ERROR]".length()).trim());
+                    } else if (!line.contains("[WHISPER_LOG]")) {
+                        outputTail.addLast(line);
+                        while (outputTail.size() > PREFETCH_TAIL_LINES) {
+                            outputTail.removeFirst();
+                        }
                     }
                 }
             } catch (IOException e) {
@@ -372,12 +430,28 @@ public class VoiceInputHandler extends BaseMessageHandler {
         }
         outputReader.join(5000);
 
-        if (process.exitValue() != 0) {
-            String error = errorMessage.get();
-            throw new IOException(!error.isEmpty()
-                    ? error
-                    : "Model download failed (exit code " + process.exitValue() + ")");
+        int exitCode = process.exitValue();
+        if (exitCode == 0) {
+            return;
         }
+
+        String reportedError = errorMessage.get();
+        if (!reportedError.isEmpty()) {
+            // The script diagnosed the failure itself (bad model id, no
+            // network, ...) — retrying on another backend would not help.
+            throw new IOException(reportedError);
+        }
+
+        // No diagnosis: the process died on us (SIGABRT from the native ONNX
+        // runtime is exit 134). Let the caller retry on the WASM backend.
+        String tail = String.join(" | ", outputTail);
+        String detail = "exit code " + exitCode
+                + (tail.isEmpty() ? "" : ": " + truncate(tail, 400));
+        throw new PrefetchCrashException(detail);
+    }
+
+    private static String truncate(String value, int max) {
+        return value.length() <= max ? value : value.substring(0, max) + "...";
     }
 
     private void forwardPrefetchProgress(String json) {

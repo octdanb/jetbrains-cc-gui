@@ -96,6 +96,8 @@ export const ButtonArea = ({
   onLongContextChange,
   voiceInputVisible = false,
   voiceState = 'idle',
+  voiceReady = true,
+  voiceUnavailableReason = null,
   onVoiceToggle,
 }: ButtonAreaProps) => {
   const { t } = useTranslation();
@@ -262,17 +264,23 @@ export const ButtonArea = ({
     onVoiceToggle?.();
   }, [onVoiceToggle]);
 
-  const voiceIcon = voiceState === 'transcribing'
-    ? 'codicon-loading codicon-modifier-spin'
-    : voiceState === 'recording'
-      ? 'codicon-record'
-      : 'codicon-mic';
-
-  const voiceTooltip = voiceState === 'recording'
-    ? t('chat.voice.stopRecording')
+  // Not set up yet: keep the mic visible but visibly inert, with the tooltip
+  // (and a toast on click) explaining what to configure.
+  const voiceIcon = !voiceReady
+    ? 'codicon-mic-filled'
     : voiceState === 'transcribing'
-      ? t('chat.voice.transcribing')
-      : t('chat.voice.startRecording');
+      ? 'codicon-loading codicon-modifier-spin'
+      : voiceState === 'recording'
+        ? 'codicon-record'
+        : 'codicon-mic';
+
+  const voiceTooltip = !voiceReady
+    ? (voiceUnavailableReason || t('chat.voice.setupRequired'))
+    : voiceState === 'recording'
+      ? t('chat.voice.stopRecording')
+      : voiceState === 'transcribing'
+        ? t('chat.voice.transcribing')
+        : t('chat.voice.startRecording');
 
   return (
     <div className="button-area" data-provider={currentProvider}>
@@ -308,10 +316,11 @@ export const ButtonArea = ({
         {/* Voice input (speech-to-text) button — plan/agent modes only */}
         {voiceInputVisible && (
           <button
-            className={`voice-input-button has-tooltip ${voiceState === 'recording' ? 'is-recording' : ''}`}
+            className={`voice-input-button has-tooltip ${voiceState === 'recording' ? 'is-recording' : ''} ${!voiceReady ? 'is-unavailable' : ''}`}
             onClick={handleVoiceClick}
             disabled={voiceState === 'transcribing'}
             data-tooltip={voiceTooltip}
+            aria-disabled={!voiceReady}
           >
             <span className={`codicon ${voiceIcon}`} />
           </button>

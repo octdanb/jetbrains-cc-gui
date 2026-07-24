@@ -5,22 +5,27 @@
  * visible progress in the settings UI instead of stalling the first dictation.
  *
  * Usage:
- *   node prefetch.js --root <whisper-install-root> [--model Xenova/whisper-base]
+ *   node prefetch.js --root <whisper-install-root> [--model Xenova/whisper-base] [--device cpu|wasm]
  *
  * Protocol (stdout, line-oriented, parsed by the Java side):
  *   [WHISPER_PROGRESS] {"file":"...","progress":42}   download progress
  *   [WHISPER_LOG] <text>                              diagnostics
- *   [WHISPER_DONE] {"model":"..."}                    model ready (exit 0)
+ *   [WHISPER_DONE] {"model":"...","device":"..."}     model ready (exit 0)
  *   [WHISPER_ERROR] <message>                         failure (exit 1)
+ *
+ * A hard native crash (onnxruntime-node abort => exit 134/SIGABRT) produces no
+ * [WHISPER_ERROR] line; the Java side treats a non-zero exit without one as a
+ * signal to retry with --device wasm.
  */
 
 import { parseArgs } from 'node:util';
-import { DEFAULT_MODEL, loadTranscriber } from './whisper-runtime.js';
+import { DEFAULT_MODEL, DEVICE_WASM, loadTranscriber } from './whisper-runtime.js';
 
 const { values: args } = parseArgs({
     options: {
         root: { type: 'string' },
         model: { type: 'string' },
+        device: { type: 'string' },
     },
 });
 
@@ -29,12 +34,13 @@ if (!args.root) {
     process.exit(1);
 }
 const model = args.model || DEFAULT_MODEL;
+const device = args.device === DEVICE_WASM ? DEVICE_WASM : 'cpu';
 
 // Throttle progress lines: only emit when a file's integer percentage changes.
 const lastReported = new Map();
 
 try {
-    console.log(`[WHISPER_LOG] Prefetching model ${model}...`);
+    console.log(`[WHISPER_LOG] Prefetching model ${model} (device=${device})...`);
     await loadTranscriber(args.root, model, (progress) => {
         if (!progress || typeof progress !== 'object') {
             return;
@@ -48,8 +54,8 @@ try {
         } else if (progress.status === 'done' && progress.file) {
             console.log(`[WHISPER_LOG] Downloaded ${progress.file}`);
         }
-    });
-    console.log(`[WHISPER_DONE] ${JSON.stringify({ model })}`);
+    }, device);
+    console.log(`[WHISPER_DONE] ${JSON.stringify({ model, device })}`);
     process.exit(0);
 } catch (error) {
     console.error(`[WHISPER_ERROR] ${error.message}`);

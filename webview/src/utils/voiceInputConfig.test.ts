@@ -24,16 +24,24 @@ describe('voiceInputConfig', () => {
       model: 'whisper-1',
       language: 'en',
       localModel: 'Xenova/whisper-small',
+      localDevice: 'cpu',
     });
 
     unsubscribe();
   });
 
-  it('normalizes unknown modes to cloud', () => {
+  it('normalizes unknown or missing modes to local (the default engine)', () => {
     const listener = vi.fn();
     const unsubscribe = subscribeVoiceInputConfig(listener);
 
     window.updateVoiceInputConfig!(JSON.stringify({ mode: 'weird' }));
+    expect(listener.mock.calls[listener.mock.calls.length - 1][0].mode).toBe('local');
+
+    window.updateVoiceInputConfig!(JSON.stringify({}));
+    expect(listener.mock.calls[listener.mock.calls.length - 1][0].mode).toBe('local');
+
+    // An explicit cloud choice is still honoured.
+    window.updateVoiceInputConfig!(JSON.stringify({ mode: 'cloud' }));
     expect(listener.mock.calls[listener.mock.calls.length - 1][0].mode).toBe('cloud');
 
     unsubscribe();
@@ -69,6 +77,22 @@ describe('voiceInputConfig', () => {
     expect(late.mock.calls.length).toBe(callsBefore);
 
     unsubscribeEarly();
+  });
+
+  it('preserves the localDevice choice so a wasm fallback is not reset to cpu', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeVoiceInputConfig(listener);
+
+    window.updateVoiceInputConfig!(JSON.stringify({ mode: 'local', localDevice: 'wasm' }));
+    expect(listener.mock.calls[listener.mock.calls.length - 1][0].localDevice).toBe('wasm');
+
+    // Unknown/absent values fall back to the native backend.
+    window.updateVoiceInputConfig!(JSON.stringify({ mode: 'local', localDevice: 'gpu' }));
+    expect(listener.mock.calls[listener.mock.calls.length - 1][0].localDevice).toBe('cpu');
+    window.updateVoiceInputConfig!(JSON.stringify({ mode: 'local' }));
+    expect(listener.mock.calls[listener.mock.calls.length - 1][0].localDevice).toBe('cpu');
+
+    unsubscribe();
   });
 
   it('ignores malformed payloads without breaking existing state', () => {

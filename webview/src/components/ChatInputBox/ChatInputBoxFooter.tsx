@@ -47,6 +47,8 @@ export function ChatInputBoxFooter({
   onLongContextChange,
   voiceInputVisible,
   voiceState,
+  voiceReady,
+  voiceUnavailableReason,
   onVoiceToggle,
   fileCompletion,
   commandCompletion,
@@ -87,6 +89,8 @@ export function ChatInputBoxFooter({
   onLongContextChange?: (enabled: boolean) => void;
   voiceInputVisible?: boolean;
   voiceState?: VoiceState;
+  voiceReady?: boolean;
+  voiceUnavailableReason?: string | null;
   onVoiceToggle?: () => void;
   fileCompletion: CompletionController;
   commandCompletion: CompletionController;
@@ -139,6 +143,8 @@ export function ChatInputBoxFooter({
         onLongContextChange={onLongContextChange}
         voiceInputVisible={voiceInputVisible}
         voiceState={voiceState}
+        voiceReady={voiceReady}
+        voiceUnavailableReason={voiceUnavailableReason}
         onVoiceToggle={onVoiceToggle}
       />
 

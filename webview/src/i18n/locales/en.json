@@ -127,7 +127,10 @@
       "stopRecording": "Stop recording and transcribe",
       "transcribing": "Transcribing...",
       "emptyTranscript": "No speech detected",
-      "transcriptionFailed": "Transcription failed. Check Voice & Remote settings."
+      "transcriptionFailed": "Transcription failed. Check Voice & Remote settings.",
+      "setupRequired": "Voice input needs setup — open Settings → Voice & Remote and click \"Set up local Whisper\"",
+      "modelRequired": "The speech model has not been downloaded yet — open Settings → Voice & Remote and run setup",
+      "apiKeyRequired": "Add a transcription API key in Settings → Voice & Remote, or switch to local Whisper"
     }
   },
   "settings": {
@@ -960,7 +963,8 @@
         "setupStarting": "Starting setup...",
         "setupSuccess": "Local Whisper is ready — voice input now runs fully offline",
         "setupFailed": "Local Whisper setup failed",
-        "localHint": "Installs the Whisper runtime (transformers.js + ONNX) into ~/.codemoss/dependencies/whisper-local and downloads the model from Hugging Face (set HF_ENDPOINT for a mirror). Audio never leaves your machine and no API key is needed. First transcription after an IDE restart takes a few extra seconds while the model loads."
+        "localHint": "Installs the Whisper runtime (transformers.js + ONNX) into ~/.codemoss/dependencies/whisper-local and downloads the model from Hugging Face (set HF_ENDPOINT for a mirror). Audio never leaves your machine and no API key is needed. First transcription after an IDE restart takes a few extra seconds while the model loads.",
+        "wasmFallbackNote": "Running on the portable WASM speech backend because the native one crashed on this machine. Transcription works but is slower — re-run setup to try the native backend again."
       },
       "remote": {
         "label": "Remote Control (Claude App)",

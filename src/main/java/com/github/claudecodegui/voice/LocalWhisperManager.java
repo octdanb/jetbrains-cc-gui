@@ -47,6 +47,7 @@ public final class LocalWhisperManager {
     private Process serverProcess;
     private int serverPort = -1;
     private String serverModel;
+    private String serverDevice;
     private volatile boolean shutdownHookInstalled = false;
 
     private LocalWhisperManager() {
@@ -99,13 +100,18 @@ public final class LocalWhisperManager {
      * return its base URL (e.g. {@code http://127.0.0.1:51234/v1}).
      *
      * <p>Blocking (model load can take seconds) — call from a background thread.</p>
+     *
+     * @param device execution backend: "cpu" (native ONNX) or "wasm" (portable
+     *               fallback chosen during setup when the native one crashed)
      */
-    public String ensureServerRunning(String nodeExecutable, File bridgeDir, String model) throws IOException {
+    public String ensureServerRunning(String nodeExecutable, File bridgeDir, String model, String device)
+            throws IOException {
         String effectiveModel = (model == null || model.isBlank()) ? DEFAULT_MODEL : model.trim();
+        String effectiveDevice = "wasm".equals(device) ? "wasm" : "cpu";
 
         synchronized (lock) {
             if (serverProcess != null && serverProcess.isAlive() && serverPort > 0
-                    && effectiveModel.equals(serverModel)) {
+                    && effectiveModel.equals(serverModel) && effectiveDevice.equals(serverDevice)) {
                 return baseUrl();
             }
 
@@ -123,11 +129,19 @@ public final class LocalWhisperManager {
             command.add(getWhisperRoot().toString());
             command.add("--model");
             command.add(effectiveModel);
+            command.add("--device");
+            command.add(effectiveDevice);
 
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.directory(bridgeDir);
             pb.redirectErrorStream(true);
             new EnvironmentConfigurator().updateProcessEnvironment(pb, nodeExecutable);
+            // Match the prefetch step: Whisper weight buffers need headroom.
+            String existingNodeOptions = pb.environment().getOrDefault("NODE_OPTIONS", "");
+            if (!existingNodeOptions.contains("--max-old-space-size")) {
+                pb.environment().put("NODE_OPTIONS",
+                        (existingNodeOptions + " --max-old-space-size=4096").trim());
+            }
 
             LOG.info("[LocalWhisper] Starting server: " + String.join(" ", command));
             Process process = pb.start();
@@ -159,9 +173,11 @@ public final class LocalWhisperManager {
             serverProcess = process;
             serverPort = port;
             serverModel = effectiveModel;
+            serverDevice = effectiveDevice;
             installShutdownHook();
             watchExit(process);
-            LOG.info("[LocalWhisper] Server ready on port " + port + " (model=" + effectiveModel + ")");
+            LOG.info("[LocalWhisper] Server ready on port " + port + " (model=" + effectiveModel
+                    + ", device=" + effectiveDevice + ")");
             return baseUrl();
         }
     }
@@ -245,6 +261,7 @@ public final class LocalWhisperManager {
         serverProcess = null;
         serverPort = -1;
         serverModel = null;
+        serverDevice = null;
     }
 
     private void watchExit(Process process) {
@@ -255,6 +272,7 @@ public final class LocalWhisperManager {
                     serverProcess = null;
                     serverPort = -1;
                     serverModel = null;
+                    serverDevice = null;
                 }
             }
         });

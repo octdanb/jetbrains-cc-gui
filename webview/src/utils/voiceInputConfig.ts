@@ -11,6 +11,13 @@ import { sendBridgeEvent, sendToJava } from './bridge.js';
  */
 export type VoiceInputMode = 'cloud' | 'local';
 
+/**
+ * Execution backend for local Whisper. 'cpu' is the native ONNX runtime;
+ * 'wasm' is the portable fallback that setup selects automatically when the
+ * native one crashes on the user's machine.
+ */
+export type VoiceInputDevice = 'cpu' | 'wasm';
+
 export interface VoiceInputConfig {
   /** Master switch for the mic button in the composer */
   enabled: boolean;
@@ -26,16 +33,24 @@ export interface VoiceInputConfig {
   language: string;
   /** Local Whisper model id (HuggingFace), e.g. Xenova/whisper-base */
   localModel: string;
+  /**
+   * Execution backend chosen during setup. Must survive round-trips through
+   * this store: dropping it would reset a working 'wasm' fallback to 'cpu'
+   * and reintroduce the native crash on the next server start.
+   */
+  localDevice: VoiceInputDevice;
 }
 
 export const DEFAULT_VOICE_INPUT_CONFIG: VoiceInputConfig = {
   enabled: true,
-  mode: 'cloud',
+  // Local Whisper is the default: offline, no API key required.
+  mode: 'local',
   baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
   model: 'whisper-1',
   language: '',
   localModel: 'Xenova/whisper-base',
+  localDevice: 'cpu',
 };
 
 type Listener = (config: VoiceInputConfig) => void;
@@ -47,7 +62,7 @@ let bridgeInstalled = false;
 function normalizeConfig(raw: Partial<VoiceInputConfig> | null | undefined): VoiceInputConfig {
   return {
     enabled: typeof raw?.enabled === 'boolean' ? raw.enabled : DEFAULT_VOICE_INPUT_CONFIG.enabled,
-    mode: raw?.mode === 'local' ? 'local' : 'cloud',
+    mode: raw?.mode === 'cloud' ? 'cloud' : 'local',
     baseUrl: typeof raw?.baseUrl === 'string' && raw.baseUrl.trim() ? raw.baseUrl.trim() : DEFAULT_VOICE_INPUT_CONFIG.baseUrl,
     apiKey: typeof raw?.apiKey === 'string' ? raw.apiKey : '',
     model: typeof raw?.model === 'string' && raw.model.trim() ? raw.model.trim() : DEFAULT_VOICE_INPUT_CONFIG.model,
@@ -55,6 +70,7 @@ function normalizeConfig(raw: Partial<VoiceInputConfig> | null | undefined): Voi
     localModel: typeof raw?.localModel === 'string' && raw.localModel.trim()
       ? raw.localModel.trim()
       : DEFAULT_VOICE_INPUT_CONFIG.localModel,
+    localDevice: raw?.localDevice === 'wasm' ? 'wasm' : 'cpu',
   };
 }
 

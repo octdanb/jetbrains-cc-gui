@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './style.module.less';
-import { sendBridgeEvent, sendToJava } from '../../../utils/bridge';
+import { sendToJava } from '../../../utils/bridge';
 import {
   DEFAULT_VOICE_INPUT_CONFIG,
   refreshVoiceInputConfig,
@@ -10,16 +10,14 @@ import {
   type VoiceInputConfig,
   type VoiceInputMode,
 } from '../../../utils/voiceInputConfig';
+import {
+  refreshLocalWhisperStatus,
+  subscribeLocalWhisperStatus,
+  type LocalWhisperStatus,
+} from '../../../utils/localWhisperStatus';
 
 interface VoiceRemoteSectionProps {
   addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
-}
-
-interface LocalWhisperStatus {
-  installed: boolean;
-  modelReady: boolean;
-  serverRunning: boolean;
-  localModel: string;
 }
 
 /** Local Whisper models runnable via transformers.js (ONNX, q8-quantized). */
@@ -55,15 +53,15 @@ const VoiceRemoteSection = ({ addToast }: VoiceRemoteSectionProps) => {
     return unsubscribe;
   }, []);
 
-  // Local Whisper status + setup progress callbacks (this section is the only consumer).
+  // Local Whisper status comes from the shared store (the composer subscribes too).
   useEffect(() => {
-    window.onLocalWhisperStatus = (json: string) => {
-      try {
-        setWhisperStatus(JSON.parse(json) as LocalWhisperStatus);
-      } catch {
-        // ignore malformed payloads
-      }
-    };
+    const unsubscribe = subscribeLocalWhisperStatus(setWhisperStatus);
+    refreshLocalWhisperStatus();
+    return unsubscribe;
+  }, []);
+
+  // Setup progress/result callbacks (this section is the only consumer).
+  useEffect(() => {
     window.onLocalWhisperSetupProgress = (json: string) => {
       try {
         const payload = JSON.parse(json) as { phase?: string; message?: string };
@@ -87,13 +85,10 @@ const VoiceRemoteSection = ({ addToast }: VoiceRemoteSectionProps) => {
       } catch {
         addToast(t('settings.voiceRemote.voice.setupFailed'), 'error');
       }
-      sendBridgeEvent('get_local_whisper_status');
+      refreshLocalWhisperStatus();
     };
 
-    sendBridgeEvent('get_local_whisper_status');
-
     return () => {
-      delete window.onLocalWhisperStatus;
       delete window.onLocalWhisperSetupProgress;
       delete window.onLocalWhisperSetupResult;
     };
@@ -124,7 +119,7 @@ const VoiceRemoteSection = ({ addToast }: VoiceRemoteSectionProps) => {
   const handleLocalModelChange = useCallback((localModel: string) => {
     persistVoiceConfig({ ...voiceConfig, localModel });
     // Model readiness depends on the selection — refresh the status line.
-    setTimeout(() => sendBridgeEvent('get_local_whisper_status'), 300);
+    setTimeout(() => refreshLocalWhisperStatus(), 300);
   }, [voiceConfig, persistVoiceConfig]);
 
   const handleSetupLocalWhisper = useCallback(() => {
@@ -271,6 +266,13 @@ const VoiceRemoteSection = ({ addToast }: VoiceRemoteSectionProps) => {
 
             {setupRunning && setupProgress && (
               <div className={styles.progressLine}>{setupProgress}</div>
+            )}
+
+            {!setupRunning && voiceConfig.localDevice === 'wasm' && (
+              <div className={styles.noteBox}>
+                <span className="codicon codicon-info" />
+                <span>{t('settings.voiceRemote.voice.wasmFallbackNote')}</span>
+              </div>
             )}
 
             <small className={styles.formHint}>
