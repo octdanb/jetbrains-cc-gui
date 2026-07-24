@@ -1,3 +1,39 @@
+##### **2026年7月24日（v0.5.1）**
+
+English:
+
+✨ Features
+- **Realtime voice dictation**: the mic button now streams text into the input box while you speak, instead of only after you stop. Whisper is not a streaming model, so each pass re-transcribes the audio captured so far (~every 1.2s) and refines the text in place; the complete recording is transcribed once more on stop. A new pass only starts when the previous one finishes, so slower models simply update less often. Local engine only, since each pass is a full transcription request. Toggle under Settings → Voice & Remote
+- **Claude Code permissions editor**: Settings → Permissions now manages `permissions.allow` / `ask` / `deny` rules for all three scopes — user `~/.claude/settings.json`, project `.claude/settings.json` and local `.claude/settings.local.json` — with add/edit/delete, per-rule enable toggles, inline validation, unsaved-change indicators and duplicate detection. Rules also defined in a higher-priority scope are flagged as overridden
+- **Local Whisper is now the default voice engine** (offline, no API key). The mic stays visible in Plan and Agent modes but renders dimmed with a tooltip naming the exact setup step when the runtime or model is missing, or when a cloud API key is absent
+
+🐛 Fixes
+- Fix **Launch Remote Control failing** with `cannot access a member of class com.intellij.terminal.JBTerminalWidget$TerminalWidgetBridge with modifiers "public"`. The IDE returns a package-private widget implementation, so the terminal method is now resolved against a public supertype
+- Fix **local Whisper model download failing with exit code 134** (SIGABRT from the native ONNX runtime on some CPU/glibc combinations). Setup now retries automatically on the portable WASM backend, remembers the working choice so the transcription server reuses it, and shows a note while running on the slower backend. Crash messages quote the trailing output instead of only an exit code, and both the download and server processes get a larger Node heap
+
+🔧 Improvements
+- Permission rule validation is mirrored in the UI and the plugin backend: malformed rules are blocked before they can reach `settings.json` (one bad entry makes the CLI reject the whole permissions block), while likely mistakes are warned about — regex syntax in prefix-matched `Bash(...)` rules, miscased tool names, MCP specifiers that are ignored, and allow rules for paths the plugin's own safety layer blocks regardless
+- Permission settings are written via a temp file plus atomic move, preserve every unrelated key, and a settings file that cannot be parsed is reported instead of being overwritten
+- Saving permission rules explains that the running conversation keeps its old rules (Claude Code reads them when a session starts) and offers an explicit **Apply to current session** action
+
+中文：
+
+✨ 新功能
+- **实时语音听写**：麦克风按钮现在会在说话过程中就把文字写入输入框，而不是停止后才显示。Whisper 并非流式模型，因此每轮（约 1.2 秒）会重新转写已录制的音频并就地优化文本，停止时再对完整录音转写一次。只有上一轮结束后才会开始新一轮，因此较慢的模型只是更新频率降低。仅支持本地引擎（每轮都是一次完整转写请求），可在「设置 → 语音与远程」中开关
+- **Claude Code 权限编辑器**：「设置 → 权限」现在可管理三个作用域的 `permissions.allow` / `ask` / `deny` 规则——用户级 `~/.claude/settings.json`、项目级 `.claude/settings.json` 与本地级 `.claude/settings.local.json`，支持增删改、逐条启用开关、内联校验、未保存提示与重复检测。若同一规则在更高优先级作用域中也有定义，会被标记为已被覆盖
+- **本地 Whisper 成为默认语音引擎**（离线、无需 API 密钥）。在计划模式与智能体模式下麦克风始终可见，但在运行时或模型缺失、或云端未填写 API 密钥时会置灰，并通过提示说明具体需要完成的配置步骤
+
+🐛 修复
+- 修复**启动远程控制失败**并报错 `cannot access a member of class com.intellij.terminal.JBTerminalWidget$TerminalWidgetBridge with modifiers "public"` 的问题：IDE 返回的是包级私有的控件实现，现改为在公共父类型上解析终端方法
+- 修复**本地 Whisper 模型下载失败（退出码 134）**：在部分 CPU / glibc 组合下原生 ONNX 运行时会崩溃（SIGABRT）。安装流程现在会自动改用可移植的 WASM 后端重试，并记录可用的后端供转写服务复用，同时在使用较慢后端时给出提示。崩溃信息会附带末尾输出而非仅显示退出码，下载与服务进程也获得更大的 Node 堆内存
+
+🔧 改进
+- 权限规则校验在前端与插件后端双向对齐：格式错误的规则在写入 `settings.json` 前即被拦截（单条错误会导致 CLI 拒绝整个 permissions 配置），同时对常见误用给出警告——在前缀匹配的 `Bash(...)` 规则中使用正则语法、工具名大小写错误、会被忽略的 MCP 限定符，以及插件安全层本就会拦截的路径允许规则
+- 权限设置改为「临时文件 + 原子移动」写入，保留所有无关字段；无法解析的设置文件会被报错提示，而不会被覆盖
+- 保存权限规则时会说明当前对话仍沿用旧规则（Claude Code 在会话启动时读取），并提供明确的**应用到当前会话**操作
+
+---
+
 ##### **2026年7月19日（v0.4.7-fix2）**
 
 English:
