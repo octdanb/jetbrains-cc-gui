@@ -38,6 +38,7 @@ import {
   useResetAttachmentsOnSessionChange,
   useSpaceKeyListener,
   useResizableChatInputBox,
+  useVoiceInput,
 } from './hooks/index.js';
 import { debounce } from './utils/debounce.js';
 import { perfTimer } from '../../utils/debug.js';
@@ -551,6 +552,22 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       [onModelSelect]
     );
 
+    // Voice input (speech-to-text) hook — transcript is inserted at the caret
+    // via the global snippet-insertion callback registered by useGlobalCallbacks.
+    const insertVoiceTranscript = useCallback((text: string) => {
+      window.insertCodeSnippetAtCursor?.(text);
+    }, []);
+
+    const { voiceState, voiceEnabled, toggleVoiceRecording } = useVoiceInput({
+      insertTranscript: insertVoiceTranscript,
+      addToast,
+      t,
+    });
+
+    // Voice dictation is offered in Plan Mode ('plan') and Agent Mode ('acceptEdits').
+    const voiceInputVisible =
+      voiceEnabled && (permissionMode === 'plan' || permissionMode === 'acceptEdits');
+
     // Global callbacks hook
     useGlobalCallbacks({
       editableRef,
@@ -722,6 +739,9 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onClearAgent={() => onAgentSelect?.(null)}
           longContextEnabled={longContextEnabled}
           onLongContextChange={onLongContextChange}
+          voiceInputVisible={voiceInputVisible}
+          voiceState={voiceState}
+          onVoiceToggle={toggleVoiceRecording}
           fileCompletion={fileCompletion}
           commandCompletion={commandCompletion}
           agentCompletion={agentCompletion}

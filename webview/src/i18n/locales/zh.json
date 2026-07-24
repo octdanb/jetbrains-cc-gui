@@ -121,6 +121,13 @@
       "userContext": "补充说明：「{{context}}」",
       "expand": "展开摘要",
       "collapse": "折叠摘要"
+    },
+    "voice": {
+      "startRecording": "语音输入提示词（语音转文字）",
+      "stopRecording": "停止录音并转写",
+      "transcribing": "转写中...",
+      "emptyTranscript": "未检测到语音",
+      "transcriptionFailed": "转写失败，请检查「语音与远程」设置。"
     }
   },
   "settings": {
@@ -928,6 +935,47 @@
         "title": "导出提示词",
         "selectHint": "选择要导出的提示词",
         "confirmExport": "确认导出"
+      }
+    },
+    "voiceRemote": {
+      "title": "语音与远程",
+      "description": "使用语音输入提示词，并通过 Claude 手机应用远程控制会话。",
+      "voice": {
+        "label": "语音输入（语音转文字）",
+        "enabled": "已启用",
+        "disabled": "已禁用",
+        "baseUrl": "API 基础地址",
+        "apiKey": "API 密钥",
+        "model": "模型",
+        "language": "语言（可选）",
+        "languagePlaceholder": "例如 en、zh，留空自动检测",
+        "hint": "在计划模式和智能体模式下，输入框会显示麦克风按钮。音频由 IDE 录制并发送到上方配置的 OpenAI 兼容转写接口（如 whisper-1 或 gpt-4o-mini-transcribe）。",
+        "saved": "语音输入设置已保存",
+        "engine": "转写引擎",
+        "engineLocal": "本地 Whisper（离线，无需 API 密钥）",
+        "engineCloud": "云端 API（OpenAI 兼容）",
+        "localModel": "本地模型",
+        "statusChecking": "正在检查本地 Whisper 状态...",
+        "statusNotInstalled": "尚未安装——点击下方按钮安装运行时并下载模型。",
+        "statusModelMissing": "运行时已安装，但尚未下载该模型。",
+        "statusReady": "已就绪——转写完全在本机运行。",
+        "statusRunning": "已就绪——本地转写服务正在运行。",
+        "setup": "安装本地 Whisper",
+        "setupAgain": "重新安装 / 切换模型",
+        "setupStarting": "正在开始安装...",
+        "setupSuccess": "本地 Whisper 已就绪——语音输入现在完全离线运行",
+        "setupFailed": "本地 Whisper 安装失败",
+        "localHint": "将 Whisper 运行时（transformers.js + ONNX）安装到 ~/.codemoss/dependencies/whisper-local，并从 Hugging Face 下载模型（可通过 HF_ENDPOINT 使用镜像）。音频不会离开本机，也无需 API 密钥。IDE 重启后的首次转写会因加载模型而多花几秒。"
+      },
+      "remote": {
+        "label": "远程控制（Claude 应用）",
+        "description": "在 IDE 终端中运行 `claude remote-control`。扫描二维码（在终端中按空格键）或打开会话链接，与 Claude 手机应用配对后，即可在手机上发起会话、审批权限请求并回答问题。",
+        "note": "远程控制需要 Claude Code v2.1.52 及以上版本，并使用 claude.ai 账号登录（Pro/Max/Team/Enterprise）。它作为独立的交互式 CLI 会话在终端中运行——本面板中发起的聊天会话无法被远程控制，因为 CLI 不支持对程序化驱动的会话启用远程控制。",
+        "continueSession": "恢复此项目最近的远程控制会话（-c）",
+        "launch": "启动远程控制",
+        "launched": "远程控制已在 IDE 终端中启动",
+        "launchFailed": "启动远程控制失败",
+        "hint": "需要启用 Terminal 插件。若在基础设置中配置了 claude CLI 路径，将优先使用该路径。"
       }
     }
   },

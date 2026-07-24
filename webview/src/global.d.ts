@@ -545,6 +545,48 @@ interface Window {
   updateCommitAiConfig?: (json: string) => void;
 
   /**
+   * Update voice input (speech-to-text) settings config from backend.
+   * Payload: {enabled, baseUrl, apiKey, model, language}
+   */
+  updateVoiceInputConfig?: (json: string) => void;
+
+  /**
+   * Voice recording state change from the Java recording service.
+   * Payload: {state: 'idle'|'recording'|'transcribing', error?}
+   */
+  onVoiceRecordingState?: (json: string) => void;
+
+  /**
+   * Voice transcription result from the Java transcription service.
+   * Payload: {success, text?, error?}
+   */
+  onVoiceTranscript?: (json: string) => void;
+
+  /**
+   * Result of launching `claude remote-control` in the IDE terminal.
+   * Payload: {success, error?}
+   */
+  onRemoteControlLaunched?: (json: string) => void;
+
+  /**
+   * Local Whisper install/model/server state.
+   * Payload: {installed, modelReady, serverRunning, localModel}
+   */
+  onLocalWhisperStatus?: (json: string) => void;
+
+  /**
+   * Progress line during "Set up local Whisper" (npm install + model download).
+   * Payload: {phase: 'install'|'download', message}
+   */
+  onLocalWhisperSetupProgress?: (json: string) => void;
+
+  /**
+   * Final result of "Set up local Whisper".
+   * Payload: {success, error?}
+   */
+  onLocalWhisperSetupResult?: (json: string) => void;
+
+  /**
    * Update session title (called when AI generates a title).
    * @param sessionId - The session ID the title belongs to
    * @param title - The generated title text

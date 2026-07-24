@@ -28,6 +28,16 @@ public enum SdkDefinition {
         Collections.emptyList(),
         Arrays.asList("0.117.0", "0.116.0", "0.115.0"),
         "Codex AI 提供商所需。"
+    ),
+
+    WHISPER_LOCAL(
+        "whisper-local",
+        "Local Whisper (Speech-to-Text)",
+        "@huggingface/transformers",
+        "^3.8.0",
+        Collections.emptyList(),
+        Arrays.asList("3.8.1", "3.5.2", "3.4.2"),
+        "本地语音转文字所需（Whisper 语音识别，含 ONNX 运行时）。"
     );
 
     private final String id;

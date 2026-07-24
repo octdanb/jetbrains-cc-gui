@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { CodexFastMode, DropdownItemData, DropdownPosition, PermissionMode, ReasoningEffort, SelectedAgent } from './types.js';
+import type { CodexFastMode, DropdownItemData, DropdownPosition, PermissionMode, ReasoningEffort, SelectedAgent, VoiceState } from './types.js';
 import type { TooltipState } from './hooks/useTooltip.js';
 import { ButtonArea } from './ButtonArea.js';
 import { CompletionDropdown } from './Dropdown/index.js';
@@ -45,6 +45,9 @@ export function ChatInputBoxFooter({
   onClearAgent,
   longContextEnabled = true,
   onLongContextChange,
+  voiceInputVisible,
+  voiceState,
+  onVoiceToggle,
   fileCompletion,
   commandCompletion,
   agentCompletion,
@@ -82,6 +85,9 @@ export function ChatInputBoxFooter({
   onClearAgent: () => void;
   longContextEnabled?: boolean;
   onLongContextChange?: (enabled: boolean) => void;
+  voiceInputVisible?: boolean;
+  voiceState?: VoiceState;
+  onVoiceToggle?: () => void;
   fileCompletion: CompletionController;
   commandCompletion: CompletionController;
   agentCompletion: CompletionController;
@@ -131,6 +137,9 @@ export function ChatInputBoxFooter({
         onClearAgent={onClearAgent}
         longContextEnabled={longContextEnabled}
         onLongContextChange={onLongContextChange}
+        voiceInputVisible={voiceInputVisible}
+        voiceState={voiceState}
+        onVoiceToggle={onVoiceToggle}
       />
 
       {/* @ file reference dropdown menu */}
