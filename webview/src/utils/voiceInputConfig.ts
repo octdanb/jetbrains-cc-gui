@@ -9,9 +9,13 @@ import { sendBridgeEvent, sendToJava } from './bridge.js';
  * bridge callback exactly once and fans updates out to any number of
  * subscribers (composer + settings page).
  */
+export type VoiceInputMode = 'cloud' | 'local';
+
 export interface VoiceInputConfig {
   /** Master switch for the mic button in the composer */
   enabled: boolean;
+  /** Transcription engine: cloud API or the local Whisper server */
+  mode: VoiceInputMode;
   /** OpenAI-compatible API base URL, e.g. https://api.openai.com/v1 */
   baseUrl: string;
   /** API key for the transcription endpoint */
@@ -20,14 +24,18 @@ export interface VoiceInputConfig {
   model: string;
   /** Optional ISO-639-1 language hint (empty = auto detect) */
   language: string;
+  /** Local Whisper model id (HuggingFace), e.g. Xenova/whisper-base */
+  localModel: string;
 }
 
 export const DEFAULT_VOICE_INPUT_CONFIG: VoiceInputConfig = {
   enabled: true,
+  mode: 'cloud',
   baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
   model: 'whisper-1',
   language: '',
+  localModel: 'Xenova/whisper-base',
 };
 
 type Listener = (config: VoiceInputConfig) => void;
@@ -39,10 +47,14 @@ let bridgeInstalled = false;
 function normalizeConfig(raw: Partial<VoiceInputConfig> | null | undefined): VoiceInputConfig {
   return {
     enabled: typeof raw?.enabled === 'boolean' ? raw.enabled : DEFAULT_VOICE_INPUT_CONFIG.enabled,
+    mode: raw?.mode === 'local' ? 'local' : 'cloud',
     baseUrl: typeof raw?.baseUrl === 'string' && raw.baseUrl.trim() ? raw.baseUrl.trim() : DEFAULT_VOICE_INPUT_CONFIG.baseUrl,
     apiKey: typeof raw?.apiKey === 'string' ? raw.apiKey : '',
     model: typeof raw?.model === 'string' && raw.model.trim() ? raw.model.trim() : DEFAULT_VOICE_INPUT_CONFIG.model,
     language: typeof raw?.language === 'string' ? raw.language.trim() : '',
+    localModel: typeof raw?.localModel === 'string' && raw.localModel.trim()
+      ? raw.localModel.trim()
+      : DEFAULT_VOICE_INPUT_CONFIG.localModel,
   };
 }
 

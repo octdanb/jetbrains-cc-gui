@@ -950,7 +950,22 @@
         "language": "语言（可选）",
         "languagePlaceholder": "例如 en、zh，留空自动检测",
         "hint": "在计划模式和智能体模式下，输入框会显示麦克风按钮。音频由 IDE 录制并发送到上方配置的 OpenAI 兼容转写接口（如 whisper-1 或 gpt-4o-mini-transcribe）。",
-        "saved": "语音输入设置已保存"
+        "saved": "语音输入设置已保存",
+        "engine": "转写引擎",
+        "engineLocal": "本地 Whisper（离线，无需 API 密钥）",
+        "engineCloud": "云端 API（OpenAI 兼容）",
+        "localModel": "本地模型",
+        "statusChecking": "正在检查本地 Whisper 状态...",
+        "statusNotInstalled": "尚未安装——点击下方按钮安装运行时并下载模型。",
+        "statusModelMissing": "运行时已安装，但尚未下载该模型。",
+        "statusReady": "已就绪——转写完全在本机运行。",
+        "statusRunning": "已就绪——本地转写服务正在运行。",
+        "setup": "安装本地 Whisper",
+        "setupAgain": "重新安装 / 切换模型",
+        "setupStarting": "正在开始安装...",
+        "setupSuccess": "本地 Whisper 已就绪——语音输入现在完全离线运行",
+        "setupFailed": "本地 Whisper 安装失败",
+        "localHint": "将 Whisper 运行时（transformers.js + ONNX）安装到 ~/.codemoss/dependencies/whisper-local，并从 Hugging Face 下载模型（可通过 HF_ENDPOINT 使用镜像）。音频不会离开本机，也无需 API 密钥。IDE 重启后的首次转写会因加载模型而多花几秒。"
       },
       "remote": {
         "label": "远程控制（Claude 应用）",

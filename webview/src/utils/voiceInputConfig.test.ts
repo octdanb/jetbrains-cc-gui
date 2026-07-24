@@ -13,16 +13,28 @@ describe('voiceInputConfig', () => {
     expect(typeof window.updateVoiceInputConfig).toBe('function');
 
     window.updateVoiceInputConfig!(
-      JSON.stringify({ enabled: false, baseUrl: 'https://proxy.example/v1', apiKey: 'k', model: 'whisper-1', language: 'en' })
+      JSON.stringify({ enabled: false, mode: 'local', baseUrl: 'https://proxy.example/v1', apiKey: 'k', model: 'whisper-1', language: 'en', localModel: 'Xenova/whisper-small' })
     );
 
     expect(listener).toHaveBeenCalledWith({
       enabled: false,
+      mode: 'local',
       baseUrl: 'https://proxy.example/v1',
       apiKey: 'k',
       model: 'whisper-1',
       language: 'en',
+      localModel: 'Xenova/whisper-small',
     });
+
+    unsubscribe();
+  });
+
+  it('normalizes unknown modes to cloud', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeVoiceInputConfig(listener);
+
+    window.updateVoiceInputConfig!(JSON.stringify({ mode: 'weird' }));
+    expect(listener.mock.calls[listener.mock.calls.length - 1][0].mode).toBe('cloud');
 
     unsubscribe();
   });

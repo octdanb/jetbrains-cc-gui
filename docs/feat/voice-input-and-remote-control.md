@@ -32,9 +32,15 @@ Audio is captured on the **Java side**, not in the webview:
 - `javax.sound.sampled` works on every IDE platform. Capture format is
   16 kHz / 16-bit / mono PCM, wrapped as WAV.
 
-Transcription posts the WAV to an **OpenAI-compatible** endpoint
-(`{baseUrl}/audio/transcriptions`, Whisper API shape) using
-`java.net.http.HttpClient`. Any proxy that implements this API works.
+Transcription supports two engines (Settings → Voice & Remote → "Transcription
+engine"):
+
+- **Cloud API** — posts the WAV to an OpenAI-compatible endpoint
+  (`{baseUrl}/audio/transcriptions`, Whisper API shape) using
+  `java.net.http.HttpClient`. Any proxy that implements this API works.
+- **Local Whisper** — a one-click "Set up local Whisper" flow installs a fully
+  offline transcription runtime; no API key, audio never leaves the machine.
+  See "Local Whisper" below.
 
 ### Message flow
 
@@ -74,15 +80,68 @@ Stored in the Codemoss config under `voiceInput`:
 {
   "voiceInput": {
     "enabled": true,
+    "mode": "cloud",
     "baseUrl": "https://api.openai.com/v1",
     "apiKey": "sk-...",
     "model": "whisper-1",
-    "language": ""
+    "language": "",
+    "localModel": "Xenova/whisper-base"
   }
 }
 ```
 
-`language` is an optional ISO-639-1 hint; empty means auto-detect.
+`mode` is `"cloud"` or `"local"`. `language` is an optional ISO-639-1 hint;
+empty means auto-detect.
+
+### Local Whisper
+
+"Set up local Whisper" (Settings → Voice & Remote) makes dictation fully
+offline:
+
+1. **Install** — `@huggingface/transformers` (transformers.js v3 +
+   onnxruntime-node, no compilers needed) is npm-installed into
+   `~/.codemoss/dependencies/whisper-local` via the existing
+   `DependencyManager` machinery (new `SdkDefinition.WHISPER_LOCAL`), with all
+   its retry/cache/WSL handling.
+2. **Prefetch** — `ai-bridge/services/whisper-local/prefetch.js` downloads the
+   chosen ONNX model (q8-quantized) from Hugging Face into `<root>/models`,
+   streaming progress lines (`[WHISPER_PROGRESS] {...}`) that the settings UI
+   shows live. `HF_ENDPOINT` is honoured for mirror users.
+3. **Switch** — on success the voice config flips to `mode: "local"` with the
+   chosen `localModel`.
+
+At transcription time, `LocalWhisperManager` (application-wide singleton)
+lazily starts `ai-bridge/services/whisper-local/server.js` — a small
+OpenAI-compatible HTTP server on `127.0.0.1:<ephemeral>` — waits for its
+`[WHISPER_READY] {"port":N}` line, and the normal `VoiceTranscriptionService`
+posts to it with no API key (loopback requests bypass any HTTP proxy). The
+server is restarted when the model changes, exits when the IDE closes its
+stdin, and is killed by a JVM shutdown hook as a belt-and-braces measure.
+
+Model choices offered in the UI: `Xenova/whisper-tiny` (~40 MB),
+`Xenova/whisper-base` (~80 MB, default), `Xenova/whisper-small` (~250 MB).
+All are multilingual; the server drops the language hint for `.en` models.
+
+Message flow:
+
+```
+get_local_whisper_status  ->
+                          <-  window.onLocalWhisperStatus({installed, modelReady, serverRunning, localModel})
+setup_local_whisper {model} ->  npm install -> prefetch model -> switch config to local
+                          <-  window.onLocalWhisperSetupProgress({phase, message})  (streamed)
+                          <-  window.onLocalWhisperSetupResult({success, error?})
+```
+
+Key files:
+
+| Layer | File |
+|---|---|
+| HTTP server | `ai-bridge/services/whisper-local/server.js` (+ `create-server.js`) |
+| Runtime loader | `ai-bridge/services/whisper-local/whisper-runtime.js` |
+| WAV/multipart | `ai-bridge/services/whisper-local/audio-utils.js` (unit + HTTP tests alongside) |
+| Model prefetch | `ai-bridge/services/whisper-local/prefetch.js` |
+| Server lifecycle | `src/main/java/com/github/claudecodegui/voice/LocalWhisperManager.java` |
+| Install definition | `SdkDefinition.WHISPER_LOCAL` (`@huggingface/transformers`) |
 
 ---
 

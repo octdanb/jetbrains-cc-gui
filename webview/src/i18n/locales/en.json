@@ -945,7 +945,22 @@
         "language": "Language (optional)",
         "languagePlaceholder": "e.g. en, zh — leave empty for auto detect",
         "hint": "Shows a mic button in the input box in Plan Mode and Agent Mode. Audio is recorded by the IDE and sent to the OpenAI-compatible transcription endpoint configured above (e.g. whisper-1 or gpt-4o-mini-transcribe).",
-        "saved": "Voice input settings saved"
+        "saved": "Voice input settings saved",
+        "engine": "Transcription engine",
+        "engineLocal": "Local Whisper (offline, no API key)",
+        "engineCloud": "Cloud API (OpenAI-compatible)",
+        "localModel": "Local model",
+        "statusChecking": "Checking local Whisper status...",
+        "statusNotInstalled": "Not set up yet — click the button below to install the runtime and download the model.",
+        "statusModelMissing": "Runtime installed, but this model has not been downloaded yet.",
+        "statusReady": "Ready — transcription runs fully on this machine.",
+        "statusRunning": "Ready — local transcription server is running.",
+        "setup": "Set up local Whisper",
+        "setupAgain": "Re-run setup / switch model",
+        "setupStarting": "Starting setup...",
+        "setupSuccess": "Local Whisper is ready — voice input now runs fully offline",
+        "setupFailed": "Local Whisper setup failed",
+        "localHint": "Installs the Whisper runtime (transformers.js + ONNX) into ~/.codemoss/dependencies/whisper-local and downloads the model from Hugging Face (set HF_ENDPOINT for a mirror). Audio never leaves your machine and no API key is needed. First transcription after an IDE restart takes a few extra seconds while the model loads."
       },
       "remote": {
         "label": "Remote Control (Claude App)",

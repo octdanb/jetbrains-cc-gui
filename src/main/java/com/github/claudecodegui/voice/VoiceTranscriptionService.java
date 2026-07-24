@@ -43,9 +43,6 @@ public class VoiceTranscriptionService {
         if (baseUrl.isEmpty()) {
             throw new IOException("Transcription base URL is not configured");
         }
-        if (apiKey.isEmpty()) {
-            throw new IOException("Transcription API key is not configured");
-        }
         if (model.isEmpty()) {
             model = "whisper-1";
         }
@@ -55,17 +52,27 @@ public class VoiceTranscriptionService {
 
         byte[] body = buildMultipartBody(boundary, wavBytes, model, language);
 
-        HttpRequest request = HttpRequest.newBuilder()
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(endpoint))
                 .timeout(REQUEST_TIMEOUT)
-                .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                .build();
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body));
+        // The local Whisper server needs no auth; cloud endpoints do (the
+        // handler validates the key before calling for a friendlier error).
+        if (!apiKey.isEmpty()) {
+            requestBuilder.header("Authorization", "Bearer " + apiKey);
+        }
+        HttpRequest request = requestBuilder.build();
 
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(15))
-                .build();
+        URI endpointUri = URI.create(endpoint);
+        HttpClient.Builder clientBuilder = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(15));
+        // Never route loopback (local Whisper server) through a configured HTTP proxy.
+        String host = endpointUri.getHost();
+        if ("127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host) || "::1".equals(host)) {
+            clientBuilder.proxy(HttpClient.Builder.NO_PROXY);
+        }
+        HttpClient client = clientBuilder.build();
 
         LOG.info("[VoiceTranscription] POST " + endpoint + " (model=" + model + ", "
                 + wavBytes.length + " bytes)");

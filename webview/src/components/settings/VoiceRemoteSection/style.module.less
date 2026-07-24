@@ -147,6 +147,49 @@
   }
 }
 
+.radioRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.radioOption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 10px 0 2px;
+
+  .codicon {
+    font-size: 14px;
+  }
+
+  .codicon-pass-filled {
+    color: var(--color-success, #2ea043);
+  }
+}
+
+.progressLine {
+  margin-top: 10px;
+  font-size: 12px;
+  font-family: var(--idea-editor-font-family, monospace);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .buttonRow {
   display: flex;
   align-items: center;
