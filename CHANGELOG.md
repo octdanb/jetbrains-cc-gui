@@ -1,3 +1,27 @@
+##### **2026年7月24日（v0.5.2）**
+
+English:
+
+🐛 Fixes
+- Fix **being unable to stop a voice recording**: while recording, the mic button switched to a filled record dot, which reads as "start" rather than "stop", so there was no visible way to end the recording. The active button now turns red and shows a **stop square**
+
+🔧 Improvements
+- **Split voice input into two buttons**: **Record** (transcribes once when you stop) and **Dictation** (streams text into the input box while you speak). The Dictation button only appears when live dictation is enabled and the local engine is in use, since each live pass is a full transcription request
+- Only one recording can run at a time: while one button is active the other is disabled and explains why, and the stop control always sits on the button that actually owns the recording
+- The recording mode is now requested explicitly rather than inferred from settings, and the backend reports whether live passes really started — so a dictation request that falls back to plain recording (for example on a cloud engine) still shows its stop control in the right place
+
+中文：
+
+🐛 修复
+- 修复**无法停止语音录制**的问题：录制过程中麦克风按钮会变成实心录制圆点，看起来像「开始」而非「停止」，导致没有可见的结束方式。现在处于录制状态的按钮会变红并显示**停止方块**
+
+🔧 改进
+- **将语音输入拆分为两个按钮**：**录制**（停止后一次性转写）与**听写**（边说边把文字写入输入框）。听写按钮仅在启用实时听写且使用本地引擎时显示，因为每一轮实时转写都是一次完整的转写请求
+- 同一时间只能进行一种录制：其中一个按钮激活时另一个会被禁用并说明原因，停止控件始终位于真正持有本次录制的按钮上
+- 录制模式改为显式请求，而非从设置推断；后端会回报实时转写是否真正启动——因此当听写请求回退为普通录制（例如使用云端引擎）时，停止控件仍会显示在正确的位置
+
+---
+
 ##### **2026年7月24日（v0.5.1）**
 
 English:

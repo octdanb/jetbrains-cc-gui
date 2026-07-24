@@ -96,9 +96,12 @@ export const ButtonArea = ({
   onLongContextChange,
   voiceInputVisible = false,
   voiceState = 'idle',
+  voiceActiveMode = null,
+  voiceLiveAvailable = false,
   voiceReady = true,
   voiceUnavailableReason = null,
   onVoiceToggle,
+  onVoiceDictateToggle,
 }: ButtonAreaProps) => {
   const { t } = useTranslation();
   // const fileInputRef = useRef<HTMLInputElement>(null);
@@ -257,30 +260,64 @@ export const ButtonArea = ({
   }, [onEnhancePrompt]);
 
   /**
-   * Handle voice input (mic) button click
+   * Handle voice button clicks. Record and Dictation are separate buttons so
+   * each can show its own stop control while active.
    */
   const handleVoiceClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onVoiceToggle?.();
   }, [onVoiceToggle]);
 
-  // Not set up yet: keep the mic visible but visibly inert, with the tooltip
-  // (and a toast on click) explaining what to configure.
-  const voiceIcon = !voiceReady
-    ? 'codicon-mic-filled'
-    : voiceState === 'transcribing'
-      ? 'codicon-loading codicon-modifier-spin'
-      : voiceState === 'recording'
-        ? 'codicon-record'
-        : 'codicon-mic';
+  const handleDictateClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onVoiceDictateToggle?.();
+  }, [onVoiceDictateToggle]);
 
-  const voiceTooltip = !voiceReady
-    ? (voiceUnavailableReason || t('chat.voice.setupRequired'))
-    : voiceState === 'recording'
-      ? t('chat.voice.stopRecording')
-      : voiceState === 'transcribing'
-        ? t('chat.voice.transcribing')
-        : t('chat.voice.startRecording');
+  /**
+   * Icon for one of the voice buttons.
+   *
+   * While this button owns the recording it must read unmistakably as "stop"
+   * (a stop square), not as a record dot — otherwise there is no visible way to
+   * end the recording.
+   */
+  const voiceIconFor = (mode: 'record' | 'dictate') => {
+    if (!voiceReady) {
+      return mode === 'record' ? 'codicon-mic-filled' : 'codicon-radio-tower';
+    }
+    const isActive = voiceState === 'recording' && voiceActiveMode === mode;
+    if (isActive) {
+      return 'codicon-debug-stop';
+    }
+    if (voiceState === 'transcribing' && voiceActiveMode === mode) {
+      return 'codicon-loading codicon-modifier-spin';
+    }
+    return mode === 'record' ? 'codicon-mic' : 'codicon-radio-tower';
+  };
+
+  const voiceTooltipFor = (mode: 'record' | 'dictate') => {
+    if (!voiceReady) {
+      return voiceUnavailableReason || t('chat.voice.setupRequired');
+    }
+    if (voiceState === 'transcribing') {
+      return t('chat.voice.transcribing');
+    }
+    if (voiceState === 'recording') {
+      if (voiceActiveMode === mode) {
+        return mode === 'record'
+          ? t('chat.voice.stopRecording')
+          : t('chat.voice.stopDictation');
+      }
+      return t('chat.voice.busyRecording');
+    }
+    return mode === 'record'
+      ? t('chat.voice.startRecording')
+      : t('chat.voice.startDictation');
+  };
+
+  // A recording owned by the other button blocks this one: you cannot record
+  // two ways at once.
+  const isBlockedByOther = (mode: 'record' | 'dictate') =>
+    voiceState !== 'idle' && voiceActiveMode !== null && voiceActiveMode !== mode;
 
   return (
     <div className="button-area" data-provider={currentProvider}>
@@ -313,16 +350,31 @@ export const ButtonArea = ({
       <div className="button-area-right">
         <div className="button-divider" />
 
-        {/* Voice input (speech-to-text) button — plan/agent modes only */}
+        {/* Voice input — plan/agent modes only. Record transcribes once when
+            stopped; Dictation streams text while you speak. */}
         {voiceInputVisible && (
           <button
-            className={`voice-input-button has-tooltip ${voiceState === 'recording' ? 'is-recording' : ''} ${!voiceReady ? 'is-unavailable' : ''}`}
+            className={`voice-input-button has-tooltip ${voiceState === 'recording' && voiceActiveMode === 'record' ? 'is-recording' : ''} ${!voiceReady ? 'is-unavailable' : ''}`}
             onClick={handleVoiceClick}
-            disabled={voiceState === 'transcribing'}
-            data-tooltip={voiceTooltip}
+            disabled={voiceState === 'transcribing' || isBlockedByOther('record')}
+            data-tooltip={voiceTooltipFor('record')}
             aria-disabled={!voiceReady}
+            aria-pressed={voiceState === 'recording' && voiceActiveMode === 'record'}
           >
-            <span className={`codicon ${voiceIcon}`} />
+            <span className={`codicon ${voiceIconFor('record')}`} />
+          </button>
+        )}
+
+        {voiceInputVisible && voiceLiveAvailable && (
+          <button
+            className={`voice-input-button has-tooltip ${voiceState === 'recording' && voiceActiveMode === 'dictate' ? 'is-recording' : ''} ${!voiceReady ? 'is-unavailable' : ''}`}
+            onClick={handleDictateClick}
+            disabled={voiceState === 'transcribing' || isBlockedByOther('dictate')}
+            data-tooltip={voiceTooltipFor('dictate')}
+            aria-disabled={!voiceReady}
+            aria-pressed={voiceState === 'recording' && voiceActiveMode === 'dictate'}
+          >
+            <span className={`codicon ${voiceIconFor('dictate')}`} />
           </button>
         )}
 

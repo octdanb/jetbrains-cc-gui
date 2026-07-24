@@ -25,11 +25,18 @@
   cursor: not-allowed;
 }
 
+/* A disabled button that is the active recording must stay legible as "stop",
+   not fade out like an unavailable control. */
+.voice-input-button.is-recording:disabled {
+  opacity: 1;
+}
+
 .voice-input-button .codicon {
   font-size: 16px;
 }
 
-/* Active recording: red pulsing dot so the live microphone is unmissable */
+/* Active recording: the icon becomes a stop square, and the button turns red and
+   pulses so the live microphone is unmissable and clearly stoppable. */
 .voice-input-button.is-recording {
   color: #e51400;
   background: rgba(229, 20, 0, 0.12);

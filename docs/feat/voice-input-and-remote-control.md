@@ -15,11 +15,27 @@ Both are configured under **Settings → Voice & Remote**.
 
 ### UX
 
-- A microphone button appears on the right side of the composer toolbar when the
-  permission mode is **Plan Mode** (`plan`) or **Agent Mode** (`acceptEdits`),
-  and the feature is enabled in settings (default: enabled).
-- Click to start recording (button pulses red), click again to stop. The audio
-  is transcribed and the text is inserted at the caret in the input box.
+There are **two** voice buttons in the composer toolbar, shown when the
+permission mode is **Plan Mode** (`plan`) or **Agent Mode** (`acceptEdits`) and
+the feature is enabled in settings (default: enabled):
+
+| Button | Icon | Behaviour |
+|---|---|---|
+| **Record** | `codicon-mic` | Records, then transcribes once when you stop. |
+| **Dictation** | `codicon-radio-tower` | Streams text into the box while you speak. Only shown when live dictation is on *and* the local engine is in use. |
+
+- While a button owns the recording it turns red, pulses, and its icon becomes a
+  **stop square** (`codicon-debug-stop`). This matters: an earlier version showed
+  a record dot while recording, which read as "start" and left no visible way to
+  stop.
+- The other button is disabled for the duration — you cannot record two ways at
+  once — and pressing it explains why.
+- Which mode to use is sent explicitly (`voice_record_start {live}`) rather than
+  inferred from settings, and the backend echoes back whether live passes
+  actually started (`onVoiceRecordingState {live}`). A dictation request against
+  a non-local engine degrades to plain recording, and the UI follows the
+  backend, so the stop control is always on the button that really owns it.
+- The audio is transcribed and the text is inserted at the caret in the input box.
 - Recording is capped at 4 minutes as a safety limit.
 - **When dictation is not set up yet** the mic is still shown but dimmed
   (`.is-unavailable`), and its tooltip — plus a toast on click — says exactly

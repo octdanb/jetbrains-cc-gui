@@ -109,7 +109,7 @@ public class VoiceInputHandler extends BaseMessageHandler {
     public boolean handle(String type, String content) {
         switch (type) {
             case "voice_record_start":
-                handleRecordStart();
+                handleRecordStart(content);
                 return true;
             case "voice_record_stop":
                 handleRecordStop();
@@ -134,16 +134,34 @@ public class VoiceInputHandler extends BaseMessageHandler {
         }
     }
 
-    private void handleRecordStart() {
+    /**
+     * Start recording.
+     *
+     * @param content {"live": boolean} — the composer has separate Record and
+     *        Dictation buttons, so which mode to use is an explicit request
+     *        rather than something inferred from settings here.
+     */
+    private void handleRecordStart(String content) {
+        boolean requestedLive = false;
+        try {
+            JsonObject payload = gson.fromJson(content, JsonObject.class);
+            if (payload != null && payload.has("live") && !payload.get("live").isJsonNull()) {
+                requestedLive = payload.get("live").getAsBoolean();
+            }
+        } catch (RuntimeException e) {
+            LOG.debug("[VoiceInput] No/invalid start payload, defaulting to plain recording");
+        }
+        final boolean live = requestedLive;
+
         CompletableFuture.runAsync(() -> {
             try {
                 recordingService.start();
                 lastPartialText.set("");
-                sendRecordingState("recording", null);
-                maybeStartLiveDictation();
+                boolean liveStarted = live && maybeStartLiveDictation();
+                sendRecordingState("recording", liveStarted, null);
             } catch (Exception e) {
                 LOG.warn("[VoiceInput] Failed to start recording: " + e.getMessage());
-                sendRecordingState("idle", "Could not access the microphone: " + e.getMessage());
+                sendRecordingState("idle", false, "Could not access the microphone: " + e.getMessage());
             }
         });
     }
@@ -169,7 +187,7 @@ public class VoiceInputHandler extends BaseMessageHandler {
                 return;
             }
 
-            sendRecordingState("transcribing", null);
+            sendRecordingState("transcribing", false, null);
             try {
                 JsonObject config = context.getSettingsService().getVoiceInputConfig();
                 JsonObject target = resolveTranscriptionTarget(config);
@@ -186,30 +204,31 @@ public class VoiceInputHandler extends BaseMessageHandler {
     }
 
     /**
-     * Start streaming partial transcripts if live dictation is enabled and the
-     * local engine is in use.
+     * Start streaming partial transcripts for a dictation request.
      *
      * <p>Live mode is deliberately local-only: each pass is a full
      * transcription request, so running it against a paid cloud endpoint would
-     * bill the user roughly once per second of speech.</p>
+     * bill the user roughly once per second of speech. When live is not
+     * possible the recording still proceeds as a plain one, and the caller is
+     * told so the UI can reflect it.</p>
+     *
+     * @return true when live passes were actually started
      */
-    private void maybeStartLiveDictation() {
+    private boolean maybeStartLiveDictation() {
         JsonObject config;
         try {
             config = context.getSettingsService().getVoiceInputConfig();
         } catch (Exception e) {
             LOG.warn("[VoiceInput] Could not read config for live dictation: " + e.getMessage());
-            return;
+            return false;
         }
 
-        boolean liveEnabled = config.has("liveDictation")
-                && !config.get("liveDictation").isJsonNull()
-                && config.get("liveDictation").getAsBoolean();
         boolean isLocal = config.has("mode")
                 && !config.get("mode").isJsonNull()
                 && "local".equals(config.get("mode").getAsString());
-        if (!liveEnabled || !isLocal) {
-            return;
+        if (!isLocal) {
+            LOG.info("[VoiceInput] Live dictation needs the local engine; recording without partials");
+            return false;
         }
 
         final long generation = recordingGeneration.get();
@@ -225,6 +244,7 @@ public class VoiceInputHandler extends BaseMessageHandler {
                 () -> runLivePass(generation, config),
                 LIVE_TICK_MILLIS, LIVE_TICK_MILLIS, TimeUnit.MILLISECONDS);
         LOG.info("[VoiceInput] Live dictation started");
+        return true;
     }
 
     /**
@@ -342,7 +362,7 @@ public class VoiceInputHandler extends BaseMessageHandler {
     private void handleRecordCancel() {
         CompletableFuture.runAsync(() -> {
             recordingService.cancel();
-            sendRecordingState("idle", null);
+            sendRecordingState("idle", false, null);
         });
     }
 
@@ -621,9 +641,12 @@ public class VoiceInputHandler extends BaseMessageHandler {
         callJavaScript("window.onLocalWhisperSetupResult", escapeJs(gson.toJson(payload)));
     }
 
-    private void sendRecordingState(String state, String error) {
+    private void sendRecordingState(String state, boolean live, String error) {
         JsonObject payload = new JsonObject();
         payload.addProperty("state", state);
+        // Tells the composer which button is active, so it can show the right
+        // stop affordance.
+        payload.addProperty("live", live);
         if (error != null) {
             payload.addProperty("error", error);
         }

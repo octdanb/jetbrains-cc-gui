@@ -658,6 +658,9 @@ export interface ChatInputBoxProps {
 /** Voice input recording state (mirrors useVoiceInput) */
 export type VoiceState = 'idle' | 'recording' | 'transcribing';
 
+/** Which voice button owns the active recording (mirrors useVoiceInput) */
+export type VoiceActiveModeProp = 'record' | 'dictate' | null;
+
 /**
  * ButtonArea component props
  */
@@ -715,16 +718,22 @@ export interface ButtonAreaProps {
   longContextEnabled?: boolean;
   /** Toggle long context callback */
   onLongContextChange?: (enabled: boolean) => void;
-  /** Whether the voice input (mic) button is visible */
+  /** Whether the voice input buttons are visible */
   voiceInputVisible?: boolean;
   /** Voice input recording state */
   voiceState?: VoiceState;
-  /** Whether dictation is set up and usable (false renders a disabled mic) */
+  /** Which voice button owns the active recording */
+  voiceActiveMode?: VoiceActiveModeProp;
+  /** Whether the separate live-dictation button should be shown */
+  voiceLiveAvailable?: boolean;
+  /** Whether dictation is set up and usable (false renders disabled buttons) */
   voiceReady?: boolean;
-  /** Localized reason dictation is unavailable, shown as the mic tooltip */
+  /** Localized reason dictation is unavailable, shown as the tooltip */
   voiceUnavailableReason?: string | null;
-  /** Toggle voice recording callback */
+  /** Toggle plain recording callback */
   onVoiceToggle?: () => void;
+  /** Toggle live dictation callback */
+  onVoiceDictateToggle?: () => void;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
-import { sendBridgeEvent } from '../../../utils/bridge.js';
+import { sendBridgeEvent, sendToJava } from '../../../utils/bridge.js';
 import {
   subscribeVoiceInputConfig,
   refreshVoiceInputConfig,
@@ -14,6 +14,8 @@ import {
 } from '../../../utils/localWhisperStatus.js';
 
 export type VoiceRecordingState = 'idle' | 'recording' | 'transcribing';
+/** Which button owns the current recording. */
+export type VoiceActiveMode = 'record' | 'dictate' | null;
 
 interface UseVoiceInputOptions {
   /** Insert the transcript into the input box (usually window.insertCodeSnippetAtCursor) */
@@ -38,8 +40,16 @@ interface UseVoiceInputOptions {
 interface UseVoiceInputResult {
   /** Current recording state driven by the Java side */
   voiceState: VoiceRecordingState;
+  /** Which of the two buttons started the active recording (null when idle) */
+  activeMode: VoiceActiveMode;
   /** Whether voice input is enabled in settings */
   voiceEnabled: boolean;
+  /**
+   * Whether the separate live-dictation button should be offered: it needs the
+   * setting on and the local engine (each live pass is a full transcription
+   * request, so it is not offered against a paid cloud endpoint).
+   */
+  liveAvailable: boolean;
   /**
    * Whether dictation can actually run: local mode needs the runtime and model
    * installed, cloud mode needs an API key. When false the mic button is shown
@@ -48,8 +58,10 @@ interface UseVoiceInputResult {
   voiceReady: boolean;
   /** Localized reason the mic is unavailable (null when ready) */
   voiceUnavailableReason: string | null;
-  /** Start recording / stop-and-transcribe toggle */
-  toggleVoiceRecording: () => void;
+  /** Toggle plain recording: transcribes once when stopped */
+  toggleRecording: () => void;
+  /** Toggle live dictation: streams text into the box while speaking */
+  toggleDictation: () => void;
 }
 
 /**
@@ -59,9 +71,14 @@ interface UseVoiceInputResult {
  * especially in OSR mode on Linux — does not reliably expose getUserMedia.
  * The webview only drives the lifecycle over the bridge:
  *
- *   voice_record_start / voice_record_stop / voice_record_cancel  (JS -> Java)
- *   window.onVoiceRecordingState({state, error?})                 (Java -> JS)
+ *   voice_record_start {live} / voice_record_stop / voice_record_cancel (JS -> Java)
+ *   window.onVoiceRecordingState({state, live, error?})           (Java -> JS)
+ *   window.onVoicePartialTranscript({text})                       (Java -> JS)
  *   window.onVoiceTranscript({success, text?, error?})            (Java -> JS)
+ *
+ * The composer exposes two buttons — Record (transcribe once on stop) and
+ * Dictation (live partials) — so the mode is requested explicitly and echoed
+ * back in the recording state, letting each button show its own stop control.
  */
 export function useVoiceInput({
   insertTranscript,
@@ -72,6 +89,7 @@ export function useVoiceInput({
   t,
 }: UseVoiceInputOptions): UseVoiceInputResult {
   const [voiceState, setVoiceState] = useState<VoiceRecordingState>('idle');
+  const [activeMode, setActiveMode] = useState<VoiceActiveMode>(null);
   const [config, setConfig] = useState<VoiceInputConfig>(DEFAULT_VOICE_INPUT_CONFIG);
   const [whisperStatus, setWhisperStatus] = useState<LocalWhisperStatus | null>(null);
 
@@ -120,10 +138,18 @@ export function useVoiceInput({
   useEffect(() => {
     window.onVoiceRecordingState = (json: string) => {
       try {
-        const payload = JSON.parse(json) as { state?: string; error?: string };
+        const payload = JSON.parse(json) as { state?: string; live?: boolean; error?: string };
         const state = payload.state;
         if (state === 'recording' || state === 'transcribing' || state === 'idle') {
           setVoiceState(state);
+          if (state === 'recording') {
+            // Trust the backend about whether live passes actually started: a
+            // dictation request silently degrades to plain recording when the
+            // local engine is not in use.
+            setActiveMode(payload.live ? 'dictate' : 'record');
+          } else if (state === 'idle') {
+            setActiveMode(null);
+          }
         }
         if (payload.error) {
           addToastRef.current?.(payload.error, 'error');
@@ -151,6 +177,7 @@ export function useVoiceInput({
 
     window.onVoiceTranscript = (json: string) => {
       setVoiceState('idle');
+      setActiveMode(null);
       try {
         const payload = JSON.parse(json) as { success?: boolean; text?: string; error?: string };
         const finalText = payload.text?.trim() ?? '';
@@ -209,8 +236,23 @@ export function useVoiceInput({
 
   const voiceReady = voiceUnavailableReason === null;
 
-  const toggleVoiceRecording = useCallback(() => {
+  // Live dictation is only offered with the local engine: each pass is a full
+  // transcription request, which would bill a cloud endpoint per second of speech.
+  const liveAvailable = config.liveDictation && config.mode === 'local';
+
+  /**
+   * Shared toggle for both buttons. `mode` identifies the caller, so pressing
+   * the button that owns the active recording stops it, while pressing the
+   * other one is ignored (you cannot record two ways at once).
+   */
+  const toggle = useCallback((mode: Exclude<VoiceActiveMode, null>) => {
     if (voiceState === 'transcribing') {
+      return;
+    }
+    if (voiceState === 'recording') {
+      if (activeMode === mode) {
+        sendBridgeEvent('voice_record_stop');
+      }
       return;
     }
     // Not set up yet: explain instead of starting a recording that will fail
@@ -219,18 +261,20 @@ export function useVoiceInput({
       addToastRef.current?.(voiceUnavailableReason, 'warning');
       return;
     }
-    if (voiceState === 'recording') {
-      sendBridgeEvent('voice_record_stop');
-    } else {
-      sendBridgeEvent('voice_record_start');
-    }
-  }, [voiceState, voiceUnavailableReason]);
+    sendToJava('voice_record_start', { live: mode === 'dictate' });
+  }, [voiceState, activeMode, voiceUnavailableReason]);
+
+  const toggleRecording = useCallback(() => toggle('record'), [toggle]);
+  const toggleDictation = useCallback(() => toggle('dictate'), [toggle]);
 
   return {
     voiceState,
+    activeMode,
     voiceEnabled: config.enabled,
+    liveAvailable,
     voiceReady,
     voiceUnavailableReason,
-    toggleVoiceRecording,
+    toggleRecording,
+    toggleDictation,
   };
 }

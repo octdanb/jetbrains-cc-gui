@@ -597,10 +597,13 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
 
     const {
       voiceState,
+      activeMode: voiceActiveMode,
       voiceEnabled,
+      liveAvailable: voiceLiveAvailable,
       voiceReady,
       voiceUnavailableReason,
-      toggleVoiceRecording,
+      toggleRecording,
+      toggleDictation,
     } = useVoiceInput({
       insertTranscript: insertVoiceTranscript,
       showPartialTranscript: showVoicePartial,
@@ -787,9 +790,12 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onLongContextChange={onLongContextChange}
           voiceInputVisible={voiceInputVisible}
           voiceState={voiceState}
+          voiceActiveMode={voiceActiveMode}
+          voiceLiveAvailable={voiceLiveAvailable}
           voiceReady={voiceReady}
           voiceUnavailableReason={voiceUnavailableReason}
-          onVoiceToggle={toggleVoiceRecording}
+          onVoiceToggle={toggleRecording}
+          onVoiceDictateToggle={toggleDictation}
           fileCompletion={fileCompletion}
           commandCompletion={commandCompletion}
           agentCompletion={agentCompletion}

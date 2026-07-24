@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { CodexFastMode, DropdownItemData, DropdownPosition, PermissionMode, ReasoningEffort, SelectedAgent, VoiceState } from './types.js';
+import type { CodexFastMode, DropdownItemData, DropdownPosition, PermissionMode, ReasoningEffort, SelectedAgent, VoiceActiveModeProp, VoiceState } from './types.js';
 import type { TooltipState } from './hooks/useTooltip.js';
 import { ButtonArea } from './ButtonArea.js';
 import { CompletionDropdown } from './Dropdown/index.js';
@@ -47,9 +47,12 @@ export function ChatInputBoxFooter({
   onLongContextChange,
   voiceInputVisible,
   voiceState,
+  voiceActiveMode,
+  voiceLiveAvailable,
   voiceReady,
   voiceUnavailableReason,
   onVoiceToggle,
+  onVoiceDictateToggle,
   fileCompletion,
   commandCompletion,
   agentCompletion,
@@ -89,9 +92,12 @@ export function ChatInputBoxFooter({
   onLongContextChange?: (enabled: boolean) => void;
   voiceInputVisible?: boolean;
   voiceState?: VoiceState;
+  voiceActiveMode?: VoiceActiveModeProp;
+  voiceLiveAvailable?: boolean;
   voiceReady?: boolean;
   voiceUnavailableReason?: string | null;
   onVoiceToggle?: () => void;
+  onVoiceDictateToggle?: () => void;
   fileCompletion: CompletionController;
   commandCompletion: CompletionController;
   agentCompletion: CompletionController;
@@ -143,9 +149,12 @@ export function ChatInputBoxFooter({
         onLongContextChange={onLongContextChange}
         voiceInputVisible={voiceInputVisible}
         voiceState={voiceState}
+        voiceActiveMode={voiceActiveMode}
+        voiceLiveAvailable={voiceLiveAvailable}
         voiceReady={voiceReady}
         voiceUnavailableReason={voiceUnavailableReason}
         onVoiceToggle={onVoiceToggle}
+        onVoiceDictateToggle={onVoiceDictateToggle}
       />
 
       {/* @ file reference dropdown menu */}
