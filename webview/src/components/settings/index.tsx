@@ -12,6 +12,7 @@ import DependencySection from './DependencySection';
 import UsageSection from './UsageSection';
 import PlaceholderSection from './PlaceholderSection';
 import PermissionsSection from './PermissionsSection';
+import ClaudePermissionsPanel from './PermissionsSection/ClaudePermissionsPanel';
 import CommunitySection from './CommunitySection';
 import AgentSection from './AgentSection';
 import PromptSection from './PromptSection';
@@ -590,7 +591,7 @@ const SettingsView = ({
                 onCodexSandboxModeChange={handleCodexSandboxModeChange}
               />
             ) : (
-              <PlaceholderSection type="permissions" />
+              <ClaudePermissionsPanel addToast={addToast} />
             )}
           </div>
 

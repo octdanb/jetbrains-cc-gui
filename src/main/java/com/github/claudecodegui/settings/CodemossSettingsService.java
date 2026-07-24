@@ -1168,6 +1168,98 @@ public class CodemossSettingsService {
         return getPrompt(id, PromptScope.GLOBAL, null);
     }
 
+    // ==================== Permission Rule State ====================
+
+    private static final String PERMISSION_RULE_STATE_KEY = "permissionRuleState";
+    private static final String PERMISSION_DISABLED_KEY = "disabled";
+
+    /**
+     * Read the rules the user has switched off for a given scope.
+     *
+     * <p>Claude Code's {@code settings.json} has no representation for a
+     * "disabled" rule — a rule is either present or absent. To let users park a
+     * rule without losing it, disabled rules are removed from the settings file
+     * and remembered here instead, so the settings file stays clean and valid
+     * for the CLI.</p>
+     *
+     * @param storageKey scope identity — see
+     *        {@code PermissionSettingsHandler#buildStorageKey}
+     * @return {allow: [...], ask: [...], deny: [...]}
+     */
+    public JsonObject getDisabledPermissionRules(String storageKey) throws IOException {
+        JsonObject config = readConfig();
+        JsonObject result = new JsonObject();
+
+        JsonObject byScope = null;
+        if (config.has(PERMISSION_RULE_STATE_KEY) && config.get(PERMISSION_RULE_STATE_KEY).isJsonObject()) {
+            JsonObject state = config.getAsJsonObject(PERMISSION_RULE_STATE_KEY);
+            if (state.has(PERMISSION_DISABLED_KEY) && state.get(PERMISSION_DISABLED_KEY).isJsonObject()) {
+                JsonObject disabled = state.getAsJsonObject(PERMISSION_DISABLED_KEY);
+                if (disabled.has(storageKey) && disabled.get(storageKey).isJsonObject()) {
+                    byScope = disabled.getAsJsonObject(storageKey);
+                }
+            }
+        }
+
+        for (String bucket : new String[]{"allow", "ask", "deny"}) {
+            com.google.gson.JsonArray values = new com.google.gson.JsonArray();
+            if (byScope != null && byScope.has(bucket) && byScope.get(bucket).isJsonArray()) {
+                for (com.google.gson.JsonElement element : byScope.getAsJsonArray(bucket)) {
+                    if (element.isJsonPrimitive()) {
+                        values.add(element.getAsString());
+                    }
+                }
+            }
+            result.add(bucket, values);
+        }
+        return result;
+    }
+
+    /**
+     * Persist the disabled rules for a scope. Buckets that end up empty are
+     * dropped, and a scope with nothing disabled is removed entirely.
+     */
+    public void setDisabledPermissionRules(String storageKey, JsonObject buckets) throws IOException {
+        JsonObject config = readConfig();
+
+        JsonObject state = config.has(PERMISSION_RULE_STATE_KEY)
+                && config.get(PERMISSION_RULE_STATE_KEY).isJsonObject()
+                ? config.getAsJsonObject(PERMISSION_RULE_STATE_KEY)
+                : new JsonObject();
+        JsonObject disabled = state.has(PERMISSION_DISABLED_KEY)
+                && state.get(PERMISSION_DISABLED_KEY).isJsonObject()
+                ? state.getAsJsonObject(PERMISSION_DISABLED_KEY)
+                : new JsonObject();
+
+        JsonObject scopeEntry = new JsonObject();
+        for (String bucket : new String[]{"allow", "ask", "deny"}) {
+            if (buckets != null && buckets.has(bucket) && buckets.get(bucket).isJsonArray()
+                    && buckets.getAsJsonArray(bucket).size() > 0) {
+                scopeEntry.add(bucket, buckets.getAsJsonArray(bucket));
+            }
+        }
+
+        if (scopeEntry.size() == 0) {
+            disabled.remove(storageKey);
+        } else {
+            disabled.add(storageKey, scopeEntry);
+        }
+
+        if (disabled.size() == 0) {
+            state.remove(PERMISSION_DISABLED_KEY);
+        } else {
+            state.add(PERMISSION_DISABLED_KEY, disabled);
+        }
+
+        if (state.size() == 0) {
+            config.remove(PERMISSION_RULE_STATE_KEY);
+        } else {
+            config.add(PERMISSION_RULE_STATE_KEY, state);
+        }
+
+        writeConfig(config);
+    }
+
     // ==================== Voice Input (Speech-to-Text) Management ====================
 
     private static final String VOICE_INPUT_KEY = "voiceInput";

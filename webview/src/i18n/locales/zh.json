@@ -983,6 +983,55 @@
         "launchFailed": "启动远程控制失败",
         "hint": "需要启用 Terminal 插件。若在基础设置中配置了 claude CLI 路径，将优先使用该路径。"
       }
+    },
+    "claudePermissions": {
+      "title": "Claude Code 权限",
+      "description": "管理 Claude Code 用于判断哪些工具可以免询问执行的 allow / ask / deny 规则，对应 settings.json 中的 permissions 配置。",
+      "sessionNotice": "保存的规则将在新会话中生效。Claude Code 在会话启动时读取权限规则，因此不会影响正在进行的对话。",
+      "reloadNeeded": "规则已保存。当前对话仍在使用旧规则——重启其 Claude 运行时即可立即生效（不会清除聊天记录）。",
+      "reloadAction": "应用到当前会话",
+      "reloaded": "Claude 运行时已重启——新规则已生效",
+      "reloadFailed": "无法重启 Claude 运行时",
+      "scope": {
+        "user": "用户（所有项目）",
+        "project": "项目（共享）",
+        "local": "本地（私有）"
+      },
+      "scopeDesc": {
+        "user": "~/.claude/settings.json——适用于所有项目。优先级最低，会被项目级和本地级规则覆盖。",
+        "project": "项目中的 .claude/settings.json——用于提交到仓库并与团队共享，会覆盖用户级规则。",
+        "local": ".claude/settings.local.json——本项目的个人规则，不会提交到 git。三者中优先级最高。"
+      },
+      "bucket": {
+        "allow": "允许",
+        "ask": "询问",
+        "deny": "拒绝"
+      },
+      "bucketDesc": {
+        "allow": "Claude 可以直接使用、无需询问的工具。",
+        "deny": "Claude 永不可使用的工具。拒绝优先于允许，可用于保护敏感文件。",
+        "ask": "始终需要确认的工具，即使存在匹配的允许规则。"
+      },
+      "placeholder": {
+        "allow": "例如 Bash(npm run test:*) 或 Read(./src/**)",
+        "ask": "例如 Bash(git push:*)",
+        "deny": "例如 Read(./.env) 或 Bash(curl:*)"
+      },
+      "addRule": "添加规则",
+      "noRules": "暂无规则。",
+      "duplicate": "该规则已存在于此列表中",
+      "unsaved": "有未保存的更改",
+      "revert": "撤销更改",
+      "saved": "权限规则已保存",
+      "saveFailed": "无法保存权限规则",
+      "fixErrorsFirst": "请先修正无效的规则再保存",
+      "invalidCount": "有 {{count}} 条规则需要修正",
+      "fileExists": "文件已存在",
+      "fileWillBeCreated": "保存时将创建该文件",
+      "noProject": "没有可用的项目目录",
+      "toggleHint": "停用该规则但不删除",
+      "overriddenBy": "在 {{scopes}} 中也有设置，其优先级高于当前范围",
+      "disabledRuleNote": "停用规则会将其从 settings.json 中移除（Claude Code 没有「已停用规则」的概念），并在此记录，以便之后无需重新输入即可重新启用。"
     }
   },
   "history": {

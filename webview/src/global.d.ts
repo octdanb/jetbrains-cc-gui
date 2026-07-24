@@ -575,6 +575,30 @@ interface Window {
   onRemoteControlLaunched?: (json: string) => void;
 
   /**
+   * Claude Code permission rules for all scopes (user/project/local).
+   * Payload: {workingDirectory, hasProject, scopes:[...], precedence:[...]}
+   */
+  updatePermissionSettings?: (json: string) => void;
+
+  /**
+   * Result of saving permission rules for one scope.
+   * Payload: {success, scope, error?, requiresReload?}
+   */
+  permissionSettingsSaved?: (json: string) => void;
+
+  /**
+   * Result of validating a batch of permission rules.
+   * Payload: {results: [{rule, findings:[{severity, message}]}]}
+   */
+  permissionRulesValidated?: (json: string) => void;
+
+  /**
+   * Result of restarting the Claude runtime so new permission rules apply.
+   * Payload: {success, error?}
+   */
+  permissionSessionReloaded?: (json: string) => void;
+
+  /**
    * Local Whisper install/model/server state.
    * Payload: {installed, modelReady, serverRunning, localModel}
    */

@@ -978,6 +978,55 @@
         "launchFailed": "Failed to launch Remote Control",
         "hint": "Requires the Terminal plugin to be enabled. The claude CLI path from Basic settings is used when configured."
       }
+    },
+    "claudePermissions": {
+      "title": "Claude Code Permissions",
+      "description": "Manage the allow / ask / deny rules Claude Code uses to decide which tools it can run without asking. These are the permissions blocks of your settings.json files.",
+      "sessionNotice": "Saved rules apply to new sessions. Claude Code reads permission rules when a session starts, so changes do not affect a conversation that is already running.",
+      "reloadNeeded": "Rules saved. The current conversation is still using the old rules — restart its Claude runtime to apply them now (this does not clear your chat history).",
+      "reloadAction": "Apply to current session",
+      "reloaded": "Claude runtime restarted — the new rules are in effect",
+      "reloadFailed": "Could not restart the Claude runtime",
+      "scope": {
+        "user": "User (all projects)",
+        "project": "Project (shared)",
+        "local": "Local (private)"
+      },
+      "scopeDesc": {
+        "user": "~/.claude/settings.json — applies to every project. Lowest priority: project and local rules override these.",
+        "project": ".claude/settings.json in your project — intended to be committed and shared with your team. Overrides user rules.",
+        "local": ".claude/settings.local.json — your personal rules for this project, kept out of git. Highest priority of the three."
+      },
+      "bucket": {
+        "allow": "Allow",
+        "ask": "Ask",
+        "deny": "Deny"
+      },
+      "bucketDesc": {
+        "allow": "Tools Claude may use without asking you.",
+        "deny": "Tools Claude may never use. Deny wins over allow, so use this to protect sensitive files.",
+        "ask": "Tools that always prompt for confirmation, even if an allow rule would match."
+      },
+      "placeholder": {
+        "allow": "e.g. Bash(npm run test:*) or Read(./src/**)",
+        "ask": "e.g. Bash(git push:*)",
+        "deny": "e.g. Read(./.env) or Bash(curl:*)"
+      },
+      "addRule": "Add rule",
+      "noRules": "No rules yet.",
+      "duplicate": "That rule is already in this list",
+      "unsaved": "Unsaved changes",
+      "revert": "Revert",
+      "saved": "Permission rules saved",
+      "saveFailed": "Could not save permission rules",
+      "fixErrorsFirst": "Fix the invalid rules before saving",
+      "invalidCount": "{{count}} rule(s) need fixing",
+      "fileExists": "File exists",
+      "fileWillBeCreated": "Will be created on save",
+      "noProject": "No project directory available",
+      "toggleHint": "Turn the rule off without deleting it",
+      "overriddenBy": "Also set in {{scopes}}, which takes priority over this scope",
+      "disabledRuleNote": "Turning a rule off removes it from settings.json (Claude Code has no concept of a disabled rule) and remembers it here, so you can switch it back on later without retyping it."
     }
   },
   "history": {
